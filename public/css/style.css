@@ -1,0 +1,867 @@
+/* ==========================================================
+   Design tokens
+   ========================================================== */
+:root {
+  --bg: #eef2f6;
+  --surface: #ffffff;
+  --ink: #17232e;
+  --ink-soft: #5b6b79;
+
+  --green: #12805a;
+  --green-soft: #e2f5ec;
+  --green-line: #bfe6d3;
+  --green-grad: linear-gradient(155deg, #22c58a 0%, #0f9d68 55%, #0c7f55 100%);
+  --green-glow: rgba(15, 157, 104, 0.38);
+
+  --red: #bf3327;
+  --red-soft: #fceae7;
+  --red-line: #f3c7c0;
+  --red-grad: linear-gradient(155deg, #ff7a6e 0%, #f0483f 55%, #d62f38 100%);
+  --red-glow: rgba(230, 66, 62, 0.38);
+
+  --blue: #2f5fd8;
+  --blue-soft: #e8eefc;
+  --blue-line: #c6d6f7;
+  --indigo-grad: linear-gradient(135deg, #5b6bf5 0%, #3f52d9 100%);
+
+  --gold: #f0a93a;
+
+  --radius-lg: 26px;
+  --radius-md: 14px;
+
+  --font-display: 'Manrope', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+/* This runs on a dedicated touchscreen kiosk — no mouse, no physical
+   keyboard. Kill the things that only make sense with a pointer/keyboard:
+   double-tap-to-zoom delay, text-selection callouts on long-press, and the
+   blue tap-highlight flash. */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+button, .choice-label, .choice-tap-hint, .step-title, .step-sub, .opinion-title, .opinion-sub,
+.done-title, .done-sub, .osk-key {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+/* Layered, colorful "mesh gradient" background — large soft blurred color
+   blobs (indigo/mint/peach) over a light base, slowly drifting. Reads as a
+   modern app surface instead of a flat gray page, while staying light and
+   high-contrast enough to hold up under bright hospital lighting (a full
+   dark theme was deliberately avoided for that reason — see project notes). */
+body {
+  background-color: #f3f5fb;
+  background-image:
+    radial-gradient(38% 32% at 12% 15%, rgba(91, 107, 245, 0.20), transparent 70%),
+    radial-gradient(42% 36% at 88% 12%, rgba(34, 197, 138, 0.20), transparent 70%),
+    radial-gradient(46% 40% at 82% 92%, rgba(255, 122, 110, 0.16), transparent 70%),
+    radial-gradient(40% 34% at 8% 88%, rgba(240, 169, 58, 0.14), transparent 70%);
+  background-size: 200% 200%;
+  animation: bg-drift 22s ease-in-out infinite;
+}
+@keyframes bg-drift {
+  0%, 100% { background-position: 0% 0%, 100% 0%, 100% 100%, 0% 100%; }
+  50%      { background-position: 8% 6%, 92% 8%, 92% 94%, 8% 92%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* ==========================================================
+   Kiosk shell
+   ========================================================== */
+.kiosk {
+  min-height: 100vh;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 24px 48px;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  animation: rise 0.35s ease both;
+}
+.screen[hidden] {
+  display: none !important;
+}
+.screen-center {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.opinion-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(34px, 8vw, 46px);
+  margin: 8px 0 2px;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+.opinion-sub {
+  color: var(--ink-soft);
+  font-size: 16px;
+  margin: 0 0 36px;
+  text-align: center;
+}
+
+.step-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(24px, 6vw, 30px);
+  margin: 6px 0 4px;
+  letter-spacing: -0.01em;
+}
+.step-sub {
+  color: var(--ink-soft);
+  font-size: 15px;
+  margin: 0 0 30px;
+}
+
+/* ==========================================================
+   Step 1 — Satisfied / Complain (emoji buttons)
+
+   The whole title+subtitle+buttons block sits inside one card
+   (.choice-card) that's centered both vertically and horizontally in
+   the screen (.screen-choice-outer), with equal breathing room on all
+   four sides — a deliberate "floating centerpiece" composition rather
+   than content pinned to the top with leftover space below.
+   ========================================================== */
+.screen-choice-outer {
+  align-items: center;
+  justify-content: center;
+}
+
+.choice-card {
+  width: 100%;
+  max-width: 580px;
+  margin: 0 auto;
+  padding: 48px 36px 42px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 32px;
+  box-shadow: 0 30px 70px -24px rgba(35, 40, 90, 0.28), 0 1px 0 rgba(255, 255, 255, 0.95) inset;
+  text-align: center;
+  animation: card-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.opinion-title {
+  background: linear-gradient(100deg, #3f52d9, #12805a 130%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 10px;
+}
+
+.choice-box {
+  position: relative;
+  border: none;
+  border-radius: var(--radius-lg);
+  min-height: 214px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  animation: box-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+/* A physical "press down" feel — the tile settles and its own colored
+   glow tightens underneath it, instead of just a flat scale-down. */
+.choice-box:active {
+  transform: scale(0.96) translateY(2px);
+}
+.choice-satisfied { animation-delay: 0.18s; }
+.choice-complain { animation-delay: 0.28s; }
+@keyframes box-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Soft floating light blob in the corner — sits behind the icon/label
+   (z-index 0), a subtle sheen across the bold gradient tile. */
+.choice-box::after {
+  content: '';
+  position: absolute;
+  top: -34px;
+  right: -34px;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  z-index: 0;
+  background: rgba(255, 255, 255, 0.22);
+  animation: blob-float 6s ease-in-out infinite;
+}
+@keyframes blob-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-6px, 8px) scale(1.08); }
+}
+
+.choice-emoji {
+  font-size: 64px;
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+  width: 76px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 2px 0 rgba(255, 255, 255, 0.28) inset;
+}
+.choice-emoji svg {
+  display: block;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.choice-box:active .choice-emoji svg { transform: scale(0.88) rotate(-3deg); }
+
+/* Mood-matched idle animation on the circular icon chip — a cheerful,
+   energetic bounce for Satisfied vs. a slow, heavy droop for Complain.
+   Lives on .choice-emoji (the chip) rather than the svg itself so it
+   never fights with the svg's own :active press-feedback transform
+   above. Both are muted globally by the prefers-reduced-motion rule. */
+.choice-satisfied .choice-emoji {
+  animation: happy-bounce 2.2s ease-in-out infinite;
+}
+@keyframes happy-bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  20%      { transform: translateY(-7px) rotate(-6deg); }
+  40%      { transform: translateY(0) rotate(5deg); }
+  60%      { transform: translateY(-3px) rotate(-3deg); }
+  80%      { transform: translateY(0) rotate(0deg); }
+}
+
+.choice-complain .choice-emoji {
+  animation: sad-droop 3.4s ease-in-out infinite;
+}
+@keyframes sad-droop {
+  0%, 100%  { transform: translateY(0) rotate(0deg); }
+  50%       { transform: translateY(5px) rotate(-4deg); }
+  75%       { transform: translateY(2px) rotate(2deg); }
+}
+
+.choice-label { position: relative; z-index: 1; }
+
+/* Bold, saturated gradient tiles with a colored "lifted" shadow — the
+   headline modern touch replacing the old flat pastel-tint buttons. */
+.choice-satisfied {
+  background: var(--green-grad);
+  box-shadow: 0 20px 36px -14px var(--green-glow), 0 1px 0 rgba(255, 255, 255, 0.3) inset;
+}
+.choice-satisfied:active { box-shadow: 0 10px 22px -12px var(--green-glow), 0 0 0 3px rgba(255, 255, 255, 0.55) inset; }
+.choice-satisfied .choice-emoji { color: #fff; }
+.choice-satisfied .choice-label { color: #fff; }
+
+.choice-complain {
+  background: var(--red-grad);
+  box-shadow: 0 20px 36px -14px var(--red-glow), 0 1px 0 rgba(255, 255, 255, 0.3) inset;
+}
+.choice-complain:active { box-shadow: 0 10px 22px -12px var(--red-glow), 0 0 0 3px rgba(255, 255, 255, 0.55) inset; }
+.choice-complain .choice-emoji { color: #fff; }
+.choice-complain .choice-label { color: #fff; }
+
+.choice-label {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+/* Small helper line under the label — invisible until the button is
+   pressed, so the press itself feels acknowledged/confirmed rather
+   than the hint competing with the label at rest. */
+.choice-tap-hint {
+  position: relative;
+  z-index: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.choice-box:active .choice-tap-hint {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ==========================================================
+   Satisfied screen — big emoji + stars
+   ========================================================== */
+.big-emoji {
+  font-size: 96px;
+  line-height: 1;
+  margin-bottom: 8px;
+  color: var(--green);
+  animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.big-emoji svg { display: block; }
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.star-row {
+  display: flex;
+  gap: 10px;
+  margin: 8px 0 32px;
+}
+.star-btn {
+  background: none;
+  border: none;
+  font-size: 52px;
+  line-height: 1;
+  color: #d6dee5;
+  transition: color 0.12s ease, transform 0.1s ease;
+  padding: 4px;
+}
+.star-btn:active { transform: scale(1.15); }
+.star-btn.lit,
+.star-btn.hover-lit {
+  color: var(--gold);
+}
+.star-btn.lit { animation: star-pop 0.4s ease; }
+@keyframes star-pop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.4) rotate(-8deg); }
+  100% { transform: scale(1); }
+}
+/* Cascading pop as stars light up left-to-right instead of all at once. */
+.star-btn:nth-child(1).lit { animation-delay: 0s; }
+.star-btn:nth-child(2).lit { animation-delay: 0.04s; }
+.star-btn:nth-child(3).lit { animation-delay: 0.08s; }
+.star-btn:nth-child(4).lit { animation-delay: 0.12s; }
+.star-btn:nth-child(5).lit { animation-delay: 0.16s; }
+
+/* ==========================================================
+   Buttons shared
+   ========================================================== */
+.btn-primary {
+  padding: 17px 28px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 16px;
+  border: none;
+  background: var(--blue);
+  color: #fff;
+  transition: opacity 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled {
+  background: #c7d2de;
+  color: #8b98a5;
+  cursor: not-allowed;
+}
+.btn-submit {
+  background: var(--red);
+  width: 100%;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-text-link {
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  text-decoration: underline;
+  padding: 6px 0;
+}
+
+/* ==========================================================
+   Done screen
+   ========================================================== */
+.done-icon {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+/* Expanding ring pulse, colored via the icon's own `color` (set inline in
+   app.js to match satisfied/complain) — reads as a soft "landed" moment. */
+.done-icon::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  opacity: 0.5;
+  animation: ring-pulse 0.9s ease-out 0.15s both;
+}
+@keyframes ring-pulse {
+  from { opacity: 0.5; transform: scale(0.75); }
+  to   { opacity: 0; transform: scale(1.5); }
+}
+.done-icon svg path {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: draw-check 0.45s ease 0.2s both;
+}
+@keyframes draw-check {
+  to { stroke-dashoffset: 0; }
+}
+.done-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 26px;
+  margin: 0 0 6px;
+  animation: fade-up 0.4s ease 0.15s both;
+}
+.done-sub {
+  color: var(--ink-soft);
+  margin: 0 0 30px;
+  animation: fade-up 0.4s ease 0.22s both;
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#screen-done .btn-primary { max-width: 240px; }
+#screen-done { position: relative; }
+
+/* Celebratory confetti burst — appended/removed by app.js, satisfied path only */
+.confetti-burst {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.confetti-piece {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  opacity: 1;
+  animation: confetti-fly 1.1s ease-out forwards;
+}
+@keyframes confetti-fly {
+  to {
+    transform: translate(var(--tx), var(--ty)) rotate(var(--rot));
+    opacity: 0;
+  }
+}
+
+/* ==========================================================
+   Complain — one page, all three questions (what happened,
+   counter, identify) stacked together as clearly separated
+   sections, same ambient background as every other step.
+   ========================================================== */
+@keyframes descend {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.screen-step {
+  animation: descend 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.back-link {
+  align-self: flex-start;
+  margin: 0 0 6px -6px; /* small negative margin so the larger tap target doesn't shift the text */
+  padding: 8px 10px;
+  font-weight: 600;
+}
+#screen-complain .step-title { margin-top: 2px; }
+#screen-complain .step-sub { margin-bottom: 20px; }
+
+.complain-section {
+  background: var(--surface);
+  border: 1.5px solid #eef0f3;
+  border-radius: 16px;
+  padding: 18px 16px;
+  margin-bottom: 14px;
+}
+.section-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  margin: 0 0 12px;
+  color: var(--ink);
+}
+.field-hint {
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  margin: -6px 0 12px;
+}
+
+/* Extra breathing room at the bottom while the on-screen keyboard is open,
+   so a field lower on the page has somewhere to scroll up to instead of
+   staying stuck behind the fixed keyboard (see showKeyboard() in app.js). */
+.screen.keyboard-open {
+  padding-bottom: 400px;
+  transition: padding-bottom 0.15s ease;
+}
+
+.optional-tag {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--ink-soft);
+  background: #eef0f3;
+  padding: 2px 8px;
+  border-radius: 999px;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.complaint-textarea {
+  width: 100%;
+  padding: 16px;
+  font-size: 16px;
+  font-family: var(--font-body);
+  border-radius: var(--radius-md);
+  border: 2px solid #d6dee5;
+  resize: none;      /* height is managed by autoGrowTextarea() in app.js instead */
+  min-height: 130px;
+  max-height: 320px;
+  overflow-y: auto;
+  color: var(--ink);
+  transition: height 0.1s ease, border-color 0.15s ease;
+}
+.complaint-textarea:focus { border-color: var(--red); }
+
+.voice-row {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.btn-voice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 2px solid var(--red-line);
+  background: var(--red-soft);
+  color: var(--red);
+  border-radius: 999px;
+  padding: 13px 22px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.btn-voice.recording { background: var(--red); color: #fff; }
+.mic-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); }
+.btn-voice.recording .mic-dot { background: #fff; animation: pulse-dot 1s ease-in-out infinite; }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+audio { width: 100%; height: 34px; }
+
+/* Counters — one clean grid of buttons (tap to toggle; more than one
+   can be selected, since a complaint can name several counters). */
+.counter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.counter-btn {
+  border: 2px solid var(--blue-line);
+  background: var(--blue-soft);
+  color: var(--blue);
+  border-radius: var(--radius-md);
+  padding: 20px 8px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  text-align: center;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.counter-btn:active { transform: scale(0.96); }
+.counter-btn .counter-name {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.counter-btn.selected {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+  animation: chip-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes chip-pop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.counter-btn.selected .counter-name { color: #dce6ff; }
+.counter-empty {
+  grid-column: 1 / -1;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  padding: 10px 0;
+}
+
+/* Identification (optional, last step) */
+.id-type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.id-type-btn {
+  border: 2px solid var(--blue-line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius-md);
+  padding: 22px 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.id-type-btn:active { transform: scale(0.96); }
+.id-type-btn.selected {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.id-value-wrap[hidden] {
+  display: none !important;
+}
+.id-value-wrap {
+  margin-top: 24px;
+}
+.field-label {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+.text-input {
+  width: 100%;
+  padding: 16px;
+  font-size: 17px;
+  border-radius: var(--radius-md);
+  border: 2px solid #d6dee5;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+.text-input:focus { border-color: var(--blue); }
+
+.error-msg {
+  color: var(--red);
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 14px;
+}
+
+/* ==========================================================
+   On-screen keyboard (English + Bangla)
+   Fixed, standard proportions — this is a kiosk with no physical
+   keyboard or mouse, so this IS the only way to type, and its size
+   must stay predictable rather than reflowing with content.
+   ========================================================== */
+.osk {
+  --osk-key-height: 60px;
+  --osk-gap: 8px;
+  transition: max-height 0.15s ease;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  max-width: 980px;
+  margin: 0 auto;
+  background: #17222d;
+  border-radius: 20px 20px 0 0;
+  padding: 14px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.32);
+  animation: osk-slide-up 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes osk-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+/* Bangla needs more rows than English (more distinct characters), so its
+   keys run a bit shorter/tighter to keep the whole panel from ballooning
+   in height and swallowing the screen. */
+.osk.lang-bn {
+  --osk-key-height: 50px;
+  --osk-gap: 6px;
+}
+.osk-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.osk-lang-toggle { display: flex; gap: 8px; }
+.osk-lang-btn {
+  border: none;
+  background: #2a3846;
+  color: #c7d2de;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 10px 20px;
+  min-height: 44px;
+  border-radius: 999px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.osk-lang-btn.active { background: var(--blue); color: #fff; }
+.osk-lang-btn:active { transform: scale(0.96); }
+.osk-done {
+  border: none;
+  background: var(--green);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  padding: 10px 20px;
+  min-height: 44px;
+  border-radius: 999px;
+}
+.osk-done:active { transform: scale(0.96); }
+
+.osk-keys {
+  display: flex;
+  flex-direction: column;
+  gap: var(--osk-gap);
+}
+.osk-row {
+  display: flex;
+  gap: var(--osk-gap);
+  justify-content: center;
+}
+.osk-key {
+  flex: 1;
+  min-width: 0;
+  height: var(--osk-key-height);   /* fixed, not just padding — keeps every
+                                       row the same height regardless of how
+                                       many keys are in it */
+  background: #f4f6f8;
+  color: var(--ink);
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+  transition: background 0.1s ease, transform 0.08s ease;
+}
+.osk-key:active { background: #d6dee5; transform: scale(0.93); }
+.osk-key.wide { flex: 1.7; }
+.osk-key.space { flex: 7; }
+.osk-key.func {
+  background: #3a4a5a;
+  color: #fff;
+  font-size: 15px;
+}
+.osk-key.func.active { background: var(--blue); }
+.osk-key.func:active { background: #4d6070; }
+
+/* ==========================================================
+   Responsive
+   The kiosk build targets one fixed touchscreen, but the same
+   pages also get opened on tablets/phones for testing and staff
+   spot-checks — these breakpoints keep everything usable and in
+   proportion from phone widths up through large kiosk monitors.
+   ========================================================== */
+
+/* Larger kiosk/desktop displays — give the layout a bit more
+   breathing room instead of staying pinned to a 720px column. */
+@media (min-width: 900px) {
+  .kiosk { max-width: 860px; }
+  .choice-box { min-height: 240px; }
+  .choice-card { max-width: 640px; padding: 52px 44px 46px; }
+}
+
+/* Tablets and small windows: keyboard keys shrink a step, and the
+   counter grid drops to 2 columns so the buttons stay a sensible size. */
+@media (max-width: 600px) {
+  .counter-grid { grid-template-columns: 1fr 1fr; }
+  .osk { --osk-key-height: 52px; --osk-gap: 6px; }
+  .osk.lang-bn { --osk-key-height: 44px; --osk-gap: 5px; }
+  .screen.keyboard-open { padding-bottom: 340px; }
+}
+
+/* Phones */
+@media (max-width: 380px) {
+  .kiosk { padding: 28px 16px 36px; }
+  .choice-box { min-height: 180px; }
+  .choice-card { padding: 32px 20px 28px; border-radius: 22px; }
+  .id-type-grid, .counter-grid { grid-template-columns: 1fr 1fr; }
+  .osk { --osk-key-height: 46px; --osk-gap: 5px; }
+  .osk.lang-bn { --osk-key-height: 40px; --osk-gap: 4px; }
+  .osk-key { font-size: 14px; }
+  .screen.keyboard-open { padding-bottom: 300px; }
+}
+
+/* Short / landscape screens (e.g. a tablet on its side, or a kiosk
+   monitor mounted landscape): the on-screen keyboard alone can be
+   taller than the viewport, so trim vertical rhythm everywhere and
+   cap the keyboard's own height with a scroll fallback. */
+@media (max-height: 560px) {
+  .kiosk { padding-top: 20px; padding-bottom: 20px; }
+  .opinion-title { font-size: clamp(26px, 6vw, 34px); margin-bottom: 0; }
+  .opinion-sub { margin-bottom: 18px; }
+  .choice-card { padding: 26px 24px 22px; }
+  .osk { --osk-key-height: 42px; --osk-gap: 4px; max-height: 78vh; overflow-y: auto; }
+  .osk.lang-bn { --osk-key-height: 36px; }
+  .screen.keyboard-open { padding-bottom: 260px; }
+}

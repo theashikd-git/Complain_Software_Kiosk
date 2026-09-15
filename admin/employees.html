@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employees — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Your Opinion</div>
+    <nav id="sidebar-nav"></nav>
+    <a href="#" class="logout-link" id="logout-btn">Log out</a>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Employees</h1>
+        <p>Create employees who can be assigned to counters</p>
+      </div>
+    </div>
+
+    <div class="panel" style="padding: 18px 20px; margin-bottom: 20px;">
+      <div class="error-banner hidden" id="form-error"></div>
+      <form id="employee-form" class="form-row">
+        <div class="field">
+          <label for="employee_code">Employee code</label>
+          <input type="text" id="employee_code" placeholder="e.g. EMP-014" required>
+        </div>
+        <div class="field">
+          <label for="full_name">Full name</label>
+          <input type="text" id="full_name" placeholder="e.g. Rahim Uddin" required>
+        </div>
+        <div class="field">
+          <label for="designation">Designation</label>
+          <input type="text" id="designation" placeholder="e.g. Receptionist">
+        </div>
+        <div class="field">
+          <label for="phone">Phone</label>
+          <input type="text" id="phone" placeholder="e.g. 01700000000">
+        </div>
+        <button type="submit" class="btn btn-primary" id="employee-submit-btn">Add Employee</button>
+        <button type="button" class="btn btn-outline hidden" id="cancel-edit-btn">Cancel</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <table>
+        <thead>
+          <tr><th>Code</th><th>Name</th><th>Designation</th><th>Phone</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="employees-tbody">
+          <tr><td colspan="6" class="muted">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="/admin/js/common.js"></script>
+<script src="/admin/js/employees.js"></script>
+</body>
+</html>
