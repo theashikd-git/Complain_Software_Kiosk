@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Your Opinion</div>
+    <nav id="sidebar-nav"></nav>
+    <a href="#" class="logout-link" id="logout-btn">Log out</a>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Dashboard</h1>
+        <p>Overview for <span id="date-label"></span></p>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card satisfied">
+        <div class="num" id="stat-satisfied">–</div>
+        <div class="label">Satisfied today</div>
+      </div>
+      <div class="stat-card satisfied">
+        <div class="num" id="stat-avg-rating">–</div>
+        <div class="label">Average rating</div>
+      </div>
+      <div class="stat-card complain">
+        <div class="num" id="stat-complain">–</div>
+        <div class="label">Complaints today</div>
+      </div>
+    </div>
+
+    <div class="complaint-box">
+      <div class="complaint-box-head">
+        <h2>Complaints</h2>
+        <input type="date" id="complaint-date">
+      </div>
+      <div class="complaint-list" id="complaint-list">
+        <div class="empty-state">Loading…</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/admin/js/common.js"></script>
+<script src="/admin/js/dashboard.js"></script>
+</body>
+</html>

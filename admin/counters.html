@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Counters — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Your Opinion</div>
+    <nav id="sidebar-nav"></nav>
+    <a href="#" class="logout-link" id="logout-btn">Log out</a>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Counters</h1>
+        <p>Create and manage service counters</p>
+      </div>
+    </div>
+
+    <div class="panel" style="padding: 18px 20px; margin-bottom: 20px;">
+      <div class="error-banner hidden" id="form-error"></div>
+      <form id="counter-form" class="form-row">
+        <div class="field">
+          <label for="counter_number">Counter number</label>
+          <input type="text" id="counter_number" placeholder="e.g. 01" list="counter-number-suggestions" autocomplete="off" required>
+          <datalist id="counter-number-suggestions"></datalist>
+        </div>
+        <div class="field">
+          <label for="counter_name">Counter name</label>
+          <input type="text" id="counter_name" placeholder="e.g. OPD Reception" list="counter-name-suggestions" autocomplete="off" required>
+          <datalist id="counter-name-suggestions"></datalist>
+        </div>
+        <div class="field">
+          <label for="assigned_employee_id">Default employee</label>
+          <select id="assigned_employee_id">
+            <option value="">— Unassigned —</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Add Counter</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <table>
+        <thead>
+          <tr><th>Number</th><th>Name</th><th>Assigned Employee (Now)</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="counters-tbody">
+          <tr><td colspan="5" class="muted">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="/admin/js/common.js"></script>
+<script src="/admin/js/counters.js"></script>
+</body>
+</html>

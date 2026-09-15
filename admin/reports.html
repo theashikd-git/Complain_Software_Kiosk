@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Your Opinion</div>
+    <nav id="sidebar-nav"></nav>
+    <a href="#" class="logout-link" id="logout-btn">Log out</a>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Reports</h1>
+        <p>Filter submissions by date range and type</p>
+      </div>
+    </div>
+
+    <div class="panel" style="padding: 18px 20px; margin-bottom: 20px;">
+      <form id="filter-form" class="form-row">
+        <div class="field">
+          <label for="from">From date</label>
+          <input type="date" id="from">
+        </div>
+        <div class="field">
+          <label for="to">To date</label>
+          <input type="date" id="to">
+        </div>
+        <div class="field">
+          <label for="section">Section</label>
+          <select id="section">
+            <option value="">Both</option>
+            <option value="satisfied">Satisfied</option>
+            <option value="complain">Complain</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Apply Filter</button>
+      </form>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card satisfied">
+        <div class="num" id="summary-satisfied">–</div>
+        <div class="label">Satisfied</div>
+      </div>
+      <div class="stat-card satisfied">
+        <div class="num" id="summary-avg-rating">–</div>
+        <div class="label">Average rating</div>
+      </div>
+      <div class="stat-card complain">
+        <div class="num" id="summary-complain">–</div>
+        <div class="label">Complaints</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Type</th><th>Rating / Identified by</th><th>Counter(s)</th><th>Employee</th><th>Details</th></tr>
+        </thead>
+        <tbody id="report-tbody">
+          <tr><td colspan="6" class="muted">Choose a filter and click Apply.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="/admin/js/common.js"></script>
+<script src="/admin/js/reports.js"></script>
+</body>
+</html>
