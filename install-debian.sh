@@ -103,9 +103,37 @@ if [ "$DB_EXISTS" != "1" ]; then
   su - postgres -c "psql -d ${DB_NAME} -f '${APP_DIR}/migration_complaint_employee_snapshot.sql'"
   su - postgres -c "psql -d ${DB_NAME} -f '${APP_DIR}/migration_roster_import.sql'"
   su - postgres -c "psql -d ${DB_NAME} -f '${APP_DIR}/migration_multi_shift.sql'"
+
+  # Record every migration that's already applied, so the update script
+  # (update-debian.sh) only ever runs NEW migration files added by a future
+  # version, never re-runs these.
+  {
+    echo "migration_shifts.sql"
+    echo "migration_counter_employee.sql"
+    echo "migration_complaint_employee_snapshot.sql"
+    echo "migration_roster_import.sql"
+    echo "migration_multi_shift.sql"
+  } > "${APP_DIR}/.applied_migrations"
+  chown "$APP_USER:$APP_USER" "${APP_DIR}/.applied_migrations"
 else
   echo "Database ${DB_NAME} already exists — skipping schema/migrations (run them manually if this is a fresh DB)."
+  touch "${APP_DIR}/.applied_migrations"
+  chown "$APP_USER:$APP_USER" "${APP_DIR}/.applied_migrations"
 fi
+
+# schema.sql and the migrations above are loaded as the postgres superuser
+# (not as ${DB_USER}), so every table/sequence they create is OWNED by
+# postgres — being the database's owner does not by itself grant ${DB_USER}
+# any privileges on objects postgres created inside it. Grant them
+# explicitly, and set default privileges so any tables a FUTURE migration
+# creates (also loaded as postgres, see update-debian.sh) are automatically
+# usable by the app user too, with no extra step needed.
+su - postgres -c "psql -d ${DB_NAME} -c \"
+  GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ${DB_USER};
+  GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ${DB_USER};
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO ${DB_USER};
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO ${DB_USER};
+\""
 
 echo "=============================================="
 echo " 8/9  Writing .env and creating admin login"
@@ -125,11 +153,12 @@ chown "$APP_USER:$APP_USER" "$APP_DIR/.env"
 chmod 600 "$APP_DIR/.env"
 
 echo ""
-echo "Create the first admin login — you'll be asked for a username and password."
-read -rp "Admin username: " ADMIN_USER
-read -rsp "Admin password: " ADMIN_PASS
-echo ""
-read -rp "Admin full name: " ADMIN_NAME
+echo "Creating default admin login (admin / admin) — CHANGE THIS PASSWORD"
+echo "after your first login. See the note printed at the end of this script."
+ADMIN_USER="admin"
+ADMIN_PASS="admin"
+ADMIN_NAME="Administrator"
+
 su -s /bin/bash "$APP_USER" -c "cd '$APP_DIR' && node seed-admin.js '$ADMIN_USER' '$ADMIN_PASS' '$ADMIN_NAME'"
 
 echo "=============================================="
@@ -169,6 +198,13 @@ echo " Done!"
 echo "=============================================="
 echo "Kiosk screen:  http://${SERVER_IP}:${APP_PORT}/"
 echo "Admin panel:   http://${SERVER_IP}:${APP_PORT}/admin"
+echo ""
+echo "Admin login:"
+echo "  Username: ${ADMIN_USER}"
+echo "  Password: ${ADMIN_PASS}"
+echo "  *** SECURITY: this is a well-known default. Log in now and create a"
+echo "  new admin with a strong password (node seed-admin.js <user> <pass> "
+echo "  <name>), then remove this one — don't leave admin/admin active. ***"
 echo ""
 echo "Database:"
 echo "  Name:     ${DB_NAME}"
