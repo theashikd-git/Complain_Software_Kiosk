@@ -56,6 +56,7 @@ migration_*.sql        Incremental schema changes  run in order (see below)
 server.js              App entry point
 seed-admin.js          Creates an admin login
 install-debian.sh      One-paste installer for a fresh Debian server
+update-debian.sh        One-paste updater for an already-installed server
 .gitignore             Excludes node_modules/, .env, logs
 ```
 
@@ -157,6 +158,48 @@ folder contains Windows-specific files that work around this:
 **Before using these, edit them to replace the placeholder IP with your
 actual server's address.**
 
+### What the registry files actually set
+
+If you ever need to edit this by hand instead of running the `.reg` file
+(or want to double-check it applied), this is the exact policy:
+
+**Edge:**
+```
+Path:  HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge\OverrideSecurityRestrictionsOnInsecureOrigin
+Name:  1        (a String value named "1")
+Data:  http://<your-server-ip>:3000
+```
+
+**Chrome:**
+```
+Path:  HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\OverrideSecurityRestrictionsOnInsecureOrigin
+Name:  1        (a String value named "1")
+Data:  http://<your-server-ip>:3000
+```
+
+This tells the browser to treat that specific `http://` address as a
+trusted/secure origin, even though it isn't `https://`, which is what
+unlocks microphone access (`getUserMedia`) for the voice complaint feature
+on that address only  nothing else on the device is affected.
+
+**Setup steps per kiosk device:**
+1. Edit the `.reg` file first  replace the placeholder IP with your actual
+   server's LAN IP and port, matching what's in `.env`'s `PORT`.
+2. Double-click the `.reg` file and accept the admin/UAC prompt.
+3. Fully close the browser  check Task Manager for any lingering
+   `msedge.exe` / `chrome.exe` processes, since these often keep running in
+   the background even after every window is closed, which prevents the new
+   policy from taking effect.
+4. Reopen the browser and verify: go to `edge://policy` or `chrome://policy`,
+   click "Reload policies," and confirm
+   `OverrideSecurityRestrictionsOnInsecureOrigin` appears with your server's
+   address as its value.
+
+If the server's IP ever changes, both the `.reg` file and the `.bat`
+launcher need to be updated and re-applied on every kiosk device  this is
+the main reason to give the server a static/reserved LAN IP up front
+(a router DHCP reservation) rather than letting it change.
+
 ## Managing the service (Debian install)
 
 If you used the Quick Install script, the app runs under systemd:
@@ -168,13 +211,22 @@ systemctl stop complain-software       # stop it
 journalctl -u complain-software -f     # view live logs
 ```
 
-To update to the latest code:
+## Updating to a new version
+
+When a new version is released (new code pushed to this repo, possibly
+including a new `migration_*.sql` file), run this as root on the server 
+it pulls the latest code, installs any new dependencies, runs only the
+migrations that haven't been applied yet, and restarts the app:
+
 ```bash
-cd /opt/complain-software
-sudo -u complain git pull
-sudo -u complain npm install --omit=dev
-sudo systemctl restart complain-software
+curl -fsSL https://raw.githubusercontent.com/theashikd-git/Complain_Software_Kiosk/main/update-debian.sh | sudo bash
 ```
+
+This is safe to run any time, even if nothing changed  it skips
+migrations that were already applied and won't touch your `.env` or
+existing database data. It only overwrites the app's own code files (not
+your configuration), so don't hand-edit files directly on the server 
+those changes would be lost on the next update.
 
 ## Notes
 
