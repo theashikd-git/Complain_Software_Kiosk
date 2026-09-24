@@ -173,6 +173,7 @@ button { font-family: inherit; cursor: pointer; }
 .stat-card .label { color: var(--ink-soft); font-size: 13px; margin-top: 2px; }
 .stat-card.satisfied .num { color: var(--green); }
 .stat-card.complain .num { color: var(--red); }
+.stat-card.served .num { color: var(--blue); }
 
 /* ---------- Complaint box (dashboard) ---------- */
 .complaint-box {
@@ -308,6 +309,36 @@ tr:last-child td { border-bottom: none; }
 .muted { color: var(--ink-soft); }
 .hidden { display: none !important; }
 
+/* ---------- Queue (Now Serving) ---------- */
+.queue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.queue-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.queue-card h3 { font-size: 15px; margin-bottom: 2px; }
+.queue-card .counter-sub { color: var(--ink-soft); font-size: 12.5px; margin-bottom: 14px; }
+.queue-now-serving { font-size: 13px; color: var(--ink-soft); margin-bottom: 4px; }
+.queue-now-number { font-family: var(--font-display); font-weight: 800; font-size: 32px; margin-bottom: 4px; }
+.queue-now-service { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 14px; }
+.queue-waiting-label { font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
+.queue-waiting-list { list-style: none; padding: 0; margin: 0 0 14px; max-height: 160px; overflow-y: auto; }
+.queue-waiting-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.queue-waiting-list li:last-child { border-bottom: none; }
+.queue-waiting-list .svc { color: var(--ink-soft); font-size: 12px; }
+
 .badge {
   display: inline-block;
   margin-left: 6px;
@@ -370,4 +401,41 @@ tr:last-child td { border-bottom: none; }
   .toolbar { flex-direction: column; align-items: flex-start; }
 
   th, td { padding: 10px 12px; font-size: 13px; }
+}
+
+/* ---------- Reports: patients served by employee ---------- */
+.share-bar { background: var(--bg); border-radius: 4px; height: 8px; }
+.share-fill { background: var(--blue); height: 8px; border-radius: 4px; }
+.share-fill.unrecorded { background: #c3cdd6; }
+
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--ink); }
+th.sortable[data-dir="asc"]::after { content: " \25B2"; font-size: 10px; }
+th.sortable[data-dir="desc"]::after { content: " \25BC"; font-size: 10px; }
+
+/* ---------- Report sub-pages ---------- */
+.subtabs { display: flex; gap: 8px; margin-bottom: 22px; }
+.subtab {
+  flex: 0 1 auto;
+  min-width: 190px;
+  text-align: center;
+  padding: 14px 28px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+}
+.subtab:hover { color: var(--blue); border-color: var(--blue); }
+.subtab.active {
+  color: #fff;
+  background: var(--blue);
+  border-color: var(--blue);
+  box-shadow: 0 6px 16px rgba(47, 95, 216, 0.28);
+}
+@media (max-width: 560px) {
+  .subtabs { flex-direction: column; }
+  .subtab { min-width: 0; }
 }

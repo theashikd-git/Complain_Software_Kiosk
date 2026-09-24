@@ -1,31 +1,22 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>আপনার মতামত</title>
+<title>Your Opinion</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-
-<!-- Persistent UI-language switch (Bangla default) — floats above every
-     screen so it's reachable no matter where the patient is in the flow.
-     Independent from the on-screen keyboard's own EN/বাংলা input toggle
-     further down, which only controls what characters typing produces. -->
-<div class="ui-lang-toggle" id="ui-lang-toggle">
-  <button type="button" class="ui-lang-btn" data-ui-lang="bn">বাংলা</button>
-  <button type="button" class="ui-lang-btn" data-ui-lang="en">EN</button>
-</div>
 
 <div class="kiosk">
 
   <!-- STEP 1: Satisfied / Complain -->
   <section class="screen screen-choice-outer" id="screen-choice">
     <div class="choice-card">
-      <h1 class="opinion-title" data-i18n="opinionTitle">Your Opinion</h1>
-      <p class="opinion-sub" data-i18n="opinionSub">Tell us how your visit went today</p>
+      <h1 class="opinion-title">Your Opinion</h1>
+      <p class="opinion-sub">Tell us how your visit went today</p>
 
       <div class="choice-grid">
         <button class="choice-box choice-satisfied" data-choice="satisfied">
@@ -37,8 +28,8 @@
               <path d="M21 38c2.8 4.8 8 7.5 11 7.5s8.2-2.7 11-7.5"/>
             </svg>
           </span>
-          <span class="choice-label" data-i18n="choiceSatisfiedLabel">Satisfied</span>
-          <span class="choice-tap-hint" data-i18n="tapHint">Tap to continue</span>
+          <span class="choice-label">Satisfied</span>
+          <span class="choice-tap-hint">Tap to continue</span>
         </button>
 
         <button class="choice-box choice-complain" data-choice="complain">
@@ -50,11 +41,15 @@
               <path d="M21 43c2.8-4.8 8-7.5 11-7.5s8.2 2.7 11 7.5"/>
             </svg>
           </span>
-          <span class="choice-label" data-i18n="choiceComplainLabel">Complain</span>
-          <span class="choice-tap-hint" data-i18n="tapHint">Tap to continue</span>
+          <span class="choice-label">Complain</span>
+          <span class="choice-tap-hint">Tap to continue</span>
         </button>
       </div>
     </div>
+
+    <button class="serial-banner" id="serial-banner-btn">
+      <span class="serial-banner-label">Get a Serial Number</span>
+    </button>
   </section>
 
   <!-- SATISFIED: happy face + star rating -->
@@ -67,8 +62,8 @@
         <path d="M21 37c2.8 5.2 8 8 11 8s8.2-2.8 11-8"/>
       </svg>
     </div>
-    <h2 class="step-title" data-i18n="satisfiedTitle">Glad to hear it!</h2>
-    <p class="step-sub" data-i18n="satisfiedSub">Tap a star to rate your visit</p>
+    <h2 class="step-title">Glad to hear it!</h2>
+    <p class="step-sub">Tap a star to rate your visit</p>
 
     <div class="star-row" id="star-row">
       <button class="star-btn" data-star="1" aria-label="1 star">★</button>
@@ -78,58 +73,97 @@
       <button class="star-btn" data-star="5" aria-label="5 stars">★</button>
     </div>
 
-    <button class="btn-text-link" id="back-from-satisfied" data-i18n="backLabel">Back</button>
+    <button class="btn-text-link" id="back-from-satisfied">Back</button>
   </section>
 
   <!-- COMPLAIN — one page, all three questions stacked together, same
        kiosk background as every other step. -->
   <section class="screen screen-step" id="screen-complain" hidden>
-    <button class="btn-text-link back-link" id="back-from-complain" data-i18n="complainBackLabel">‹ Back</button>
-    <h2 class="step-title" data-i18n="complainTitle">Tell us what happened</h2>
-    <p class="step-sub" data-i18n="complainSub">What happened and which counter are required — identification is optional</p>
+    <button class="btn-text-link back-link" id="back-from-complain">‹ Back</button>
+    <h2 class="step-title">Tell us what happened</h2>
+    <p class="step-sub">What happened and which counter are required — identification is optional</p>
 
     <div class="complain-section">
-      <h3 class="section-title" data-i18n="whatHappenedTitle">What happened?</h3>
-      <textarea id="complaint-text" class="complaint-textarea" rows="4" data-i18n-placeholder="complaintPlaceholder" placeholder="Type your complaint here..."></textarea>
+      <h3 class="section-title">What happened?</h3>
+      <textarea id="complaint-text" class="complaint-textarea" rows="4" placeholder="Type your complaint here..."></textarea>
       <div class="voice-row">
         <button class="btn-voice" id="voice-btn">
           <span class="mic-dot"></span>
-          <span id="voice-btn-label" data-i18n="voiceRecordLabel">Record voice complaint</span>
+          <span id="voice-btn-label">Record voice complaint</span>
         </button>
         <audio id="voice-preview" controls hidden></audio>
-        <button class="btn-text-link" id="voice-clear" data-i18n="voiceRemoveLabel" hidden>Remove recording</button>
+        <button class="btn-text-link" id="voice-clear" hidden>Remove recording</button>
       </div>
     </div>
 
     <div class="complain-section">
-      <h3 class="section-title" data-i18n="counterTitle">Which counter did you visit?</h3>
-      <p class="field-hint" data-i18n="counterHint">Select one or more</p>
+      <h3 class="section-title">Which counter did you visit?</h3>
+      <p class="field-hint">Select one or more</p>
       <div class="counter-grid" id="counter-grid">
-        <div class="counter-empty" data-i18n="counterLoading">Loading counters...</div>
+        <div class="counter-empty">Loading counters...</div>
       </div>
     </div>
 
     <div class="complain-section">
-      <h3 class="section-title" data-i18n="idTitle">How should we identify you?</h3>
+      <h3 class="section-title">How should we identify you?</h3>
       <div class="id-type-grid" id="id-type-grid">
-        <button class="id-type-btn" data-idtype="OPD ID" data-i18n="idOpd">OPD ID</button>
-        <button class="id-type-btn" data-idtype="IPD ID" data-i18n="idIpd">IPD ID</button>
-        <button class="id-type-btn" data-idtype="DIAG ID" data-i18n="idDiag">DIAG ID</button>
-        <button class="id-type-btn" data-idtype="Patient Name" data-i18n="idName">Patient Name</button>
+        <button class="id-type-btn" data-idtype="OPD ID">OPD ID</button>
+        <button class="id-type-btn" data-idtype="IPD ID">IPD ID</button>
+        <button class="id-type-btn" data-idtype="DIAG ID">DIAG ID</button>
+        <button class="id-type-btn" data-idtype="Patient Name">Patient Name</button>
       </div>
       <div class="id-value-wrap" id="id-value-wrap" hidden>
-        <label class="field-label" id="id-value-label" data-i18n="enterValueDefault" for="id-value-input">Enter value</label>
+        <label class="field-label" id="id-value-label" for="id-value-input">Enter value</label>
         <input type="text" id="id-value-input" class="text-input" autocomplete="off">
-        <button class="btn-text-link" id="id-clear" data-i18n="idClear">Clear</button>
+        <button class="btn-text-link" id="id-clear">Clear</button>
       </div>
     </div>
 
     <p class="error-msg" id="complain-error" hidden></p>
 
     <button class="btn-primary btn-submit" id="submit-complaint">
-      <span data-i18n="submitLabel">Submit</span>
+      Submit
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </button>
+  </section>
+
+  <!-- GET A SERIAL NUMBER — pick a service (not a counter — the counter
+       is chosen automatically, see POST /api/queue/ticket), then get a
+       queue ticket. Turns the kiosk into a simple queue-management tool
+       alongside its feedback/complaint role. -->
+  <section class="screen screen-step" id="screen-serial" hidden>
+    <button class="btn-text-link back-link" id="back-from-serial">‹ Back</button>
+    <h2 class="step-title">Get a Serial Number</h2>
+    <p class="step-sub">Select the service you need</p>
+
+    <div class="complain-section">
+      <div class="id-type-grid" id="serial-service-grid">
+        <div class="counter-empty">Loading services...</div>
+      </div>
+    </div>
+
+    <p class="error-msg" id="serial-error" hidden></p>
+
+    <button class="btn-primary btn-submit" id="get-serial-btn" disabled>
+      Get My Number
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+  </section>
+
+  <!-- GET A SERIAL NUMBER — result: the issued ticket number. Printing
+       the physical receipt happens server-side (src/utils/receiptPrinter.js,
+       sent straight to the network thermal printer via ESC/POS) rather
+       than via the browser's window.print() — that route turned out to
+       be unreliable across Chrome versions during testing. -->
+  <section class="screen screen-center" id="screen-serial-done" hidden>
+    <div class="ticket-card">
+      <p class="ticket-eyebrow">Your number is</p>
+      <div class="ticket-number" id="serial-ticket-number">000</div>
+      <hr class="ticket-divider">
+      <p class="ticket-counter" id="serial-ticket-counter"></p>
+      <p class="ticket-hint">Please wait to be called. Keep this number in mind.</p>
+    </div>
+    <button class="btn-primary" id="serial-start-over">Start Over</button>
   </section>
 
   <!-- DONE -->
@@ -137,7 +171,7 @@
     <div class="done-icon" id="done-icon"></div>
     <h2 class="done-title" id="done-title">Thank you!</h2>
     <p class="done-sub" id="done-sub">Your feedback has been recorded.</p>
-    <button class="btn-primary" id="start-over" data-i18n="startOverLabel">Start Over</button>
+    <button class="btn-primary" id="start-over">Start Over</button>
   </section>
 
 </div>
@@ -148,7 +182,7 @@
 <div class="osk" id="osk" hidden>
   <div class="osk-toolbar">
     <div class="osk-lang-toggle">
-      <button type="button" class="osk-lang-btn" data-lang="en">EN</button>
+      <button type="button" class="osk-lang-btn active" data-lang="en">EN</button>
       <button type="button" class="osk-lang-btn" data-lang="bn">বাংলা</button>
     </div>
     <button type="button" class="osk-done" id="osk-done">Done ✓</button>

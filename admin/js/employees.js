@@ -17,6 +17,7 @@
   const fullNameInput = document.getElementById('full_name');
   const designationInput = document.getElementById('designation');
   const phoneInput = document.getElementById('phone');
+  const passwordInput = document.getElementById('password');
 
   // null = the form is adding a new employee. Set to an employee's id (and
   // its current is_active) while editing, via startEdit() below.
@@ -28,6 +29,8 @@
     fullNameInput.value = e.full_name;
     designationInput.value = e.designation || '';
     phoneInput.value = e.phone || '';
+    passwordInput.value = '';
+    passwordInput.placeholder = e.has_password ? 'Leave blank to keep current password' : 'Set a password to enable staff console login';
     submitBtn.textContent = 'Save Changes';
     cancelEditBtn.classList.remove('hidden');
     formError.classList.add('hidden');
@@ -38,6 +41,7 @@
   function stopEdit() {
     editing = null;
     form.reset();
+    passwordInput.placeholder = 'Leave blank for no console login';
     submitBtn.textContent = 'Add Employee';
     cancelEditBtn.classList.add('hidden');
     formError.classList.add('hidden');
@@ -50,18 +54,18 @@
   let employeesById = {};
 
   async function loadEmployees() {
-    tbody.innerHTML = '<tr><td colspan="6" class="muted">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="muted">Loading…</td></tr>';
     try {
       const employees = await api('/api/admin/employees');
       employeesById = Object.fromEntries(employees.map((e) => [e.id, e]));
       if (!employees.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="muted">No employees yet. Add one above.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="muted">No employees yet. Add one above.</td></tr>';
         return;
       }
       tbody.innerHTML = employees.map(rowHtml).join('');
       attachRowHandlers();
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="6" class="muted">Could not load employees: ${escapeHtml(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="muted">Could not load employees: ${escapeHtml(err.message)}</td></tr>`;
     }
   }
 
@@ -75,6 +79,9 @@
         <td>
           <span class="status-dot ${e.is_active ? 'status-active' : 'status-inactive'}"></span>
           ${e.is_active ? 'Active' : 'Inactive'}
+        </td>
+        <td>
+          <span class="badge ${e.has_password ? '' : 'muted'}">${e.has_password ? 'Enabled' : 'Not set'}</span>
         </td>
         <td>
           <button class="btn btn-outline btn-sm edit-btn">Edit</button>
@@ -134,6 +141,7 @@
     const full_name = fullNameInput.value.trim();
     const designation = designationInput.value.trim();
     const phone = phoneInput.value.trim();
+    const password = passwordInput.value; // left blank = don't change it
     try {
       if (editing) {
         // Preserve the employee's current is_active — this form never
@@ -142,13 +150,13 @@
         // call) doesn't accidentally clear it.
         await api(`/api/admin/employees/${editing.id}`, {
           method: 'PUT',
-          body: JSON.stringify({ employee_code, full_name, designation, phone, is_active: editing.is_active })
+          body: JSON.stringify({ employee_code, full_name, designation, phone, is_active: editing.is_active, password })
         });
         stopEdit();
       } else {
         await api('/api/admin/employees', {
           method: 'POST',
-          body: JSON.stringify({ employee_code, full_name, designation, phone })
+          body: JSON.stringify({ employee_code, full_name, designation, phone, password })
         });
         form.reset();
       }

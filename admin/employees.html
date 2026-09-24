@@ -43,6 +43,10 @@
           <label for="phone">Phone</label>
           <input type="text" id="phone" placeholder="e.g. 01700000000">
         </div>
+        <div class="field">
+          <label for="password">Staff console password</label>
+          <input type="password" id="password" placeholder="Leave blank for no console login" autocomplete="new-password">
+        </div>
         <button type="submit" class="btn btn-primary" id="employee-submit-btn">Add Employee</button>
         <button type="button" class="btn btn-outline hidden" id="cancel-edit-btn">Cancel</button>
       </form>
@@ -51,10 +55,10 @@
     <div class="panel">
       <table>
         <thead>
-          <tr><th>Code</th><th>Name</th><th>Designation</th><th>Phone</th><th>Status</th><th></th></tr>
+          <tr><th>Code</th><th>Name</th><th>Designation</th><th>Phone</th><th>Status</th><th>Console Login</th><th></th></tr>
         </thead>
         <tbody id="employees-tbody">
-          <tr><td colspan="6" class="muted">Loading…</td></tr>
+          <tr><td colspan="7" class="muted">Loading…</td></tr>
         </tbody>
       </table>
     </div>

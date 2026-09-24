@@ -14,8 +14,44 @@
   const assignedEmployeeSelect = document.getElementById('assigned_employee_id');
   const counterNumberSuggestions = document.getElementById('counter-number-suggestions');
   const counterNameSuggestions = document.getElementById('counter-name-suggestions');
+  const serviceChecklist = document.getElementById('service-checklist');
 
   let employees = [];
+  let services = [];
+
+  // Builds a row of checkbox pills for every ACTIVE service — used both
+  // by the create form (nothing pre-checked) and by a counter row's
+  // inline "Edit services" panel (its current service_ids pre-checked).
+  function serviceChecklistHtml(checkedIds = []) {
+    const checked = new Set(checkedIds.map(String));
+    if (!services.length) {
+      return '<span class="muted" style="font-size: 12.5px;">No services set up yet — add one on the Services page.</span>';
+    }
+    return services
+      .filter((s) => s.is_active)
+      .map(
+        (s) => `
+        <label>
+          <input type="checkbox" value="${s.id}" ${checked.has(String(s.id)) ? 'checked' : ''}>
+          ${escapeHtml(s.service_name)}
+        </label>
+      `
+      )
+      .join('');
+  }
+
+  function checkedServiceIds(container) {
+    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => Number(cb.value));
+  }
+
+  async function loadServicesForChecklist() {
+    try {
+      services = await api('/api/admin/services');
+    } catch (err) {
+      services = [];
+    }
+    serviceChecklist.innerHTML = serviceChecklistHtml();
+  }
 
   // Counter number/name stay free-text (so admins can still type a brand
   // new one), but autocomplete/suggest from whatever's already been used —
@@ -51,18 +87,18 @@
   }
 
   async function loadCounters() {
-    tbody.innerHTML = '<tr><td colspan="5" class="muted">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="muted">Loading…</td></tr>';
     try {
       const counters = await api('/api/admin/counters');
       populateSuggestions(counters);
       if (!counters.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="muted">No counters yet. Add one above.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="muted">No counters yet. Add one above.</td></tr>';
         return;
       }
       tbody.innerHTML = counters.map(rowHtml).join('');
       attachRowHandlers();
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="5" class="muted">Could not load counters: ${escapeHtml(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">Could not load counters: ${escapeHtml(err.message)}</td></tr>`;
     }
   }
 
@@ -81,11 +117,34 @@
       : '<span class="badge muted">Default</span>';
   }
 
+  // Services shown as read-only badges by default; "Edit" swaps in the
+  // same checkbox-pill checklist used on the create form, pre-checked
+  // with this counter's current services, saved via the general PUT
+  // (which only touches service_ids because this request explicitly
+  // includes that key — see the backend route's comment).
+  function servicesCellHtml(c) {
+    const badges = (c.services || []).length
+      ? c.services.map((s) => `<span class="badge muted">${escapeHtml(s.service_name)}</span>`).join(' ')
+      : '<span class="muted" style="font-size: 12.5px;">None</span>';
+    return `
+      <div class="services-display">
+        ${badges}
+        <button type="button" class="btn btn-outline btn-sm edit-services-btn" style="margin-left: 6px;">Edit</button>
+      </div>
+      <div class="services-edit hidden">
+        <div class="tag-checklist">${serviceChecklistHtml(c.service_ids || [])}</div>
+        <button type="button" class="btn btn-primary btn-sm save-services-btn" style="margin-top: 6px;">Save</button>
+        <button type="button" class="btn btn-outline btn-sm cancel-services-btn" style="margin-top: 6px;">Cancel</button>
+      </div>
+    `;
+  }
+
   function rowHtml(c) {
     return `
       <tr data-id="${c.id}">
         <td>${escapeHtml(c.counter_number)}</td>
         <td>${escapeHtml(c.counter_name)}</td>
+        <td class="services-cell">${servicesCellHtml(c)}</td>
         <td>
           <select class="assigned-employee-select">${employeeOptionsHtml(c.current_employee_id)}</select>
           <span class="now-badge">${badgeHtml(c.assigned_employee_source)}</span>
@@ -157,6 +216,36 @@
           alert(err.message);
         }
       });
+
+      const servicesCell = tr.querySelector('.services-cell');
+      const servicesDisplay = servicesCell.querySelector('.services-display');
+      const servicesEdit = servicesCell.querySelector('.services-edit');
+
+      servicesCell.querySelector('.edit-services-btn').addEventListener('click', () => {
+        servicesDisplay.classList.add('hidden');
+        servicesEdit.classList.remove('hidden');
+      });
+      servicesCell.querySelector('.cancel-services-btn').addEventListener('click', () => {
+        servicesEdit.classList.add('hidden');
+        servicesDisplay.classList.remove('hidden');
+      });
+      servicesCell.querySelector('.save-services-btn').addEventListener('click', async () => {
+        const service_ids = checkedServiceIds(servicesEdit.querySelector('.tag-checklist'));
+        try {
+          await api(`/api/admin/counters/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              counter_number: counterNumber(),
+              counter_name: counterName(),
+              is_active: tr.querySelector('.status-active') !== null,
+              service_ids
+            })
+          });
+          loadCounters();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
     });
   }
 
@@ -166,13 +255,15 @@
     const counter_number = document.getElementById('counter_number').value.trim();
     const counter_name = document.getElementById('counter_name').value.trim();
     const assigned_employee_id = assignedEmployeeSelect.value || null;
+    const service_ids = checkedServiceIds(serviceChecklist);
     try {
       await api('/api/admin/counters', {
         method: 'POST',
-        body: JSON.stringify({ counter_number, counter_name, assigned_employee_id })
+        body: JSON.stringify({ counter_number, counter_name, assigned_employee_id, service_ids })
       });
       form.reset();
       assignedEmployeeSelect.value = '';
+      serviceChecklist.innerHTML = serviceChecklistHtml();
       loadCounters();
     } catch (err) {
       formError.textContent = err.message;
@@ -181,5 +272,6 @@
   });
 
   await loadEmployeesForDropdown();
+  await loadServicesForChecklist();
   loadCounters();
 })();

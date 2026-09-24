@@ -25,13 +25,31 @@ router.get('/', async (req, res) => {
       namesById = Object.fromEntries(emps.map((e) => [e.id, e.full_name]));
     }
 
+    // Which service(s) each counter offers — one query for every counter
+    // instead of N+1, then grouped here and attached as both service_ids
+    // (for the edit form's checkboxes) and services (names, for display).
+    const { rows: counterServiceRows } = await db.query(
+      `SELECT cs.counter_id, s.id AS service_id, s.service_name
+       FROM counter_services cs
+       JOIN services s ON s.id = cs.service_id
+       ORDER BY s.service_name`
+    );
+    const servicesByCounter = {};
+    counterServiceRows.forEach((row) => {
+      if (!servicesByCounter[row.counter_id]) servicesByCounter[row.counter_id] = [];
+      servicesByCounter[row.counter_id].push({ id: row.service_id, service_name: row.service_name });
+    });
+
     const result = counters.map((c) => {
       const a = assignments[c.id] || { employeeId: c.assigned_employee_id, isLive: false };
+      const services = servicesByCounter[c.id] || [];
       return {
         ...c,
         current_employee_id: a.employeeId || null,
         assigned_employee_name: a.employeeId ? namesById[a.employeeId] || null : null,
-        assigned_employee_source: a.employeeId ? (a.isLive ? 'roster' : 'manual') : null
+        assigned_employee_source: a.employeeId ? (a.isLive ? 'roster' : 'manual') : null,
+        service_ids: services.map((s) => s.id),
+        services
       };
     });
 
@@ -65,7 +83,7 @@ router.put('/:id/now', async (req, res) => {
       await db.query('UPDATE counter_assignments SET employee_id = $1 WHERE id = $2', [employee_id, liveRow.id]);
       return res.json({ success: true, source: 'roster' });
     }
-    await db.query('UPDATE counters SET assigned_employee_id = $1 WHERE id = $2', [employee_id, counterId]);
+    await db.query('UPDATE counters SET assigned_employee_id = $1, assigned_until = NULL WHERE id = $2', [employee_id, counterId]);
     res.json({ success: true, source: 'manual' });
   } catch (err) {
     if (err.code === '23505') { // unique_violation
@@ -78,23 +96,49 @@ router.put('/:id/now', async (req, res) => {
 
 // POST /api/admin/counters — create a counter. assigned_employee_id is
 // optional (a counter can be created before anyone is assigned to it).
+// service_ids (optional array) tags this counter with the service(s) it
+// offers, used by the kiosk's "Get a Serial Number" flow to find
+// candidate counters for a requested service.
 router.post('/', async (req, res) => {
+  const client = await db.connect();
   try {
-    const { counter_number, counter_name, assigned_employee_id } = req.body;
+    const { counter_number, counter_name, assigned_employee_id, service_ids } = req.body;
     if (!counter_number || !counter_name) {
       return res.status(400).json({ error: 'Counter number and name are required.' });
     }
-    const { rows } = await db.query(
+    const ids = Array.isArray(service_ids)
+      ? [...new Set(service_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0))]
+      : [];
+
+    await client.query('BEGIN');
+    const { rows } = await client.query(
       'INSERT INTO counters (counter_number, counter_name, assigned_employee_id) VALUES ($1, $2, $3) RETURNING id',
       [counter_number.trim(), counter_name.trim(), assigned_employee_id || null]
     );
-    res.status(201).json({ id: rows[0].id, counter_number, counter_name, assigned_employee_id: assigned_employee_id || null });
+    const counterId = rows[0].id;
+    if (ids.length) {
+      await client.query(
+        'INSERT INTO counter_services (counter_id, service_id) SELECT $1, unnest($2::int[])',
+        [counterId, ids]
+      );
+    }
+    await client.query('COMMIT');
+    res.status(201).json({
+      id: counterId,
+      counter_number,
+      counter_name,
+      assigned_employee_id: assigned_employee_id || null,
+      service_ids: ids
+    });
   } catch (err) {
+    await client.query('ROLLBACK');
     if (err.code === '23505') { // unique_violation
       return res.status(409).json({ error: 'A counter with this number already exists.' });
     }
     console.error('Error creating counter:', err);
     res.status(500).json({ error: 'Could not create counter.' });
+  } finally {
+    client.release();
   }
 });
 
@@ -106,24 +150,46 @@ router.post('/', async (req, res) => {
 // default. (Changing who's assigned *right now* goes through the dedicated
 // PUT /:id/now route above instead, which knows whether to touch the
 // roster or this manual default.)
+// service_ids is only touched when the request body actually includes
+// that key, same reasoning as assigned_employee_id above — so toggling
+// Active/Inactive from the list page can never accidentally wipe out a
+// counter's service tags.
 router.put('/:id', async (req, res) => {
+  const client = await db.connect();
   try {
-    const { counter_number, counter_name, is_active, assigned_employee_id } = req.body;
+    const { counter_number, counter_name, is_active, assigned_employee_id, service_ids } = req.body;
+    await client.query('BEGIN');
     if (Object.prototype.hasOwnProperty.call(req.body, 'assigned_employee_id')) {
-      await db.query(
-        'UPDATE counters SET counter_number = $1, counter_name = $2, is_active = $3, assigned_employee_id = $4 WHERE id = $5',
+      await client.query(
+        'UPDATE counters SET counter_number = $1, counter_name = $2, is_active = $3, assigned_employee_id = $4, assigned_until = NULL WHERE id = $5',
         [counter_number, counter_name, is_active, assigned_employee_id || null, req.params.id]
       );
     } else {
-      await db.query(
+      await client.query(
         'UPDATE counters SET counter_number = $1, counter_name = $2, is_active = $3 WHERE id = $4',
         [counter_number, counter_name, is_active, req.params.id]
       );
     }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'service_ids')) {
+      const ids = Array.isArray(service_ids)
+        ? [...new Set(service_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0))]
+        : [];
+      await client.query('DELETE FROM counter_services WHERE counter_id = $1', [req.params.id]);
+      if (ids.length) {
+        await client.query(
+          'INSERT INTO counter_services (counter_id, service_id) SELECT $1, unnest($2::int[])',
+          [req.params.id, ids]
+        );
+      }
+    }
+    await client.query('COMMIT');
     res.json({ success: true });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Error updating counter:', err);
     res.status(500).json({ error: 'Could not update counter.' });
+  } finally {
+    client.release();
   }
 });
 

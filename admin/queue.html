@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Queue — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Your Opinion</div>
+    <nav id="sidebar-nav"></nav>
+    <a href="#" class="logout-link" id="logout-btn">Log out</a>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Queue</h1>
+        <p>Today's live serial numbers, per counter — call the next person when a counter is ready</p>
+      </div>
+      <button class="btn btn-outline" id="refresh-btn">Refresh</button>
+    </div>
+
+    <div class="queue-grid" id="queue-grid">
+      <p class="muted">Loading…</p>
+    </div>
+  </main>
+</div>
+
+<script src="/admin/js/common.js"></script>
+<script src="/admin/js/queue.js"></script>
+</body>
+</html>

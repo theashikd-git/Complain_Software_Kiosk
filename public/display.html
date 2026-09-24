@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>সিরিয়াল নম্বর ডিসপ্লে</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/display.css">
+</head>
+<body>
+
+<header class="board-header">
+  <h1 class="board-title" id="board-title">Queens Hospital — সিরিয়াল নম্বর</h1>
+  <div class="board-clock" id="board-clock"></div>
+</header>
+
+<main class="board-main">
+  <div class="serving-grid" id="board-grid">
+    <p class="board-loading">লোড হচ্ছে...</p>
+  </div>
+  <div class="waiting-panel" id="waiting-panel">
+    <p class="waiting-panel-label" id="waiting-panel-label"></p>
+    <div class="waiting-groups" id="waiting-groups"></div>
+  </div>
+</main>
+
+<div class="sound-unlock-overlay" id="sound-unlock-overlay">
+  <div class="sound-unlock-box">
+    <p class="sound-unlock-title">শব্দ চালু করতে এখানে স্পর্শ করুন</p>
+    <p class="sound-unlock-sub">Tap to enable sound announcements</p>
+  </div>
+</div>
+
+<script src="/js/display.js"></script>
+</body>
+</html>

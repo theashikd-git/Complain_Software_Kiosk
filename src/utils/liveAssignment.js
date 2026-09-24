@@ -51,7 +51,13 @@ async function getEffectiveAssignments(db, counterIds) {
   const { rows } = await db.query(
     `SELECT c.id AS counter_id,
             live.employee_id AS live_employee_id,
-            c.assigned_employee_id AS manual_employee_id
+            -- A staff-console self-assignment (assigned_until set) only counts until
+            -- the picking employee's shift ends, unless they're still logged in
+            -- there; admin-set assignments have no expiry (assigned_until NULL).
+            CASE WHEN c.assigned_until IS NULL
+                   OR c.assigned_until > LOCALTIMESTAMP
+                   OR c.active_employee_id = c.assigned_employee_id
+                 THEN c.assigned_employee_id END AS manual_employee_id
      FROM counters c
      LEFT JOIN LATERAL (
        SELECT ca.employee_id

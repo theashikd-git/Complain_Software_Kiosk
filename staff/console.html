@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Counter Console — Queens Hospital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/staff/css/staff.css">
+</head>
+<body>
+<div class="console-shell">
+  <header class="console-header">
+    <div>
+      <div class="counter-label" id="counter-label">Loading…</div>
+      <div class="staff-name" id="staff-name"></div>
+    </div>
+    <button type="button" class="logout-link" id="logout-btn">Log out</button>
+  </header>
+
+  <div class="notice hidden" id="roster-notice">No roster duty today; contact admin.</div>
+
+  <main class="console-main">
+    <section class="now-serving-panel">
+      <p class="label">Now Serving</p>
+      <p class="number is-empty" id="serving-number">None yet</p>
+      <p class="service" id="serving-service"></p>
+      <button type="button" class="call-next-btn" id="call-next-btn" disabled>Call Next</button>
+    </section>
+
+    <section class="waiting-panel">
+      <h2>Waiting</h2>
+      <p class="count" id="waiting-count">0 waiting</p>
+      <ul class="waiting-list" id="waiting-list"></ul>
+    </section>
+  </main>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+
+<script src="/staff/js/common.js"></script>
+<script src="/staff/js/console.js"></script>
+</body>
+</html>

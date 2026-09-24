@@ -1,13 +1,21 @@
 Windows Registry Editor Version 5.00
 
-; Permanently tells Microsoft Edge on THIS device to treat
-; http://10.100.1.40:3000 as a secure origin, so the microphone
-; (voice recording) works no matter how the page is opened —
-; typed address, shortcut, or the kiosk launcher script.
+; Permanently tells Microsoft Edge on THIS device to treat the address
+; below as a secure origin, so the microphone (voice recording) works
+; no matter how the page is opened — typed address, shortcut, or the
+; kiosk launcher script.
+;
+; NOT needed if the kiosk browser and the server run on the SAME
+; machine and the kiosk .bat points at http://localhost:3000 — Edge
+; already treats localhost as secure natively, no policy required.
+; Only apply this .reg (and edit the IP below to match) when a kiosk
+; touchscreen is a SEPARATE physical device reaching the server over
+; the LAN by IP, e.g. http://192.168.x.x:3000 — replace the address
+; below with that real value first.
 ;
 ; Run this file, click through the "Add to registry?" prompt
 ; (admin rights required), then FULLY close every Edge window
 ; before reopening — the policy is only read at browser startup.
 
 [HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge\OverrideSecurityRestrictionsOnInsecureOrigin]
-"1"="http://10.100.1.40:3000"
+"1"="http://REPLACE-WITH-SERVER-LAN-IP:3000"

@@ -4,6 +4,8 @@ const router = express.Router();
 const db = require('../config/db');
 const upload = require('../config/upload');
 const { getEffectiveAssignments } = require('../utils/liveAssignment');
+const { printTicket } = require('../utils/receiptPrinter');
+const { getQueueSnapshot } = require('../utils/queueSnapshot');
 
 const VALID_ID_TYPES = ['OPD ID', 'IPD ID', 'DIAG ID', 'Patient Name'];
 
@@ -179,6 +181,151 @@ router.post('/submissions/complain', upload.single('voice'), async (req, res) =>
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   } finally {
     client.release();
+  }
+});
+
+// GET /api/services — list active services (used by the kiosk's "Get a
+// Serial Number" screen — the patient picks a service, not a counter).
+router.get('/services', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      'SELECT id, service_name FROM services WHERE is_active = TRUE ORDER BY service_name'
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching services:', err);
+    res.status(500).json({ error: 'Could not load services.' });
+  }
+});
+
+// POST /api/queue/ticket — issue the next serial/queue number for a
+// requested SERVICE (the patient never picks a counter — see the kiosk's
+// "Get a Serial Number" screen). The counter is chosen automatically:
+// among every active counter tagged with this service (counter_services,
+// set from the admin Counters page), whichever currently has the fewest
+// people waiting gets it.
+//
+// That single rule does two jobs at once:
+//   - spreads load round-robin-style across counters that share a service
+//   - lets a counter "absorb" another service's overflow when it's idle
+//     (e.g. tagging the Report Delivery counter with OPD and Diagnostic
+//     too lets it pick up OPD tickets whenever OPD's own counter is
+//     busier) — with no special-case code here; it falls out entirely of
+//     which counters an admin tagged for the service.
+//
+// Ticket numbers come from one shared, strictly increasing sequence for
+// the whole hospital (daily_ticket_sequence), not counted up per
+// counter — so the same number is never issued twice in a day no matter
+// which counter issues it, and a plain number alone is enough to
+// identify a ticket.
+router.post('/queue/ticket', async (req, res) => {
+  const client = await db.connect();
+  try {
+    const serviceId = Number(req.body.service_id);
+    if (!Number.isInteger(serviceId) || serviceId <= 0) {
+      return res.status(400).json({ error: 'Please select a service.' });
+    }
+
+    const { rows: serviceRows } = await client.query(
+      'SELECT id, service_name FROM services WHERE id = $1 AND is_active = TRUE',
+      [serviceId]
+    );
+    if (serviceRows.length === 0) {
+      return res.status(400).json({ error: 'Selected service is no longer available.' });
+    }
+    const service = serviceRows[0];
+
+    await client.query('BEGIN');
+
+    const { rows: eligible } = await client.query(
+      `SELECT c.id, c.counter_number, c.counter_name,
+              COALESCE(wc.waiting_count, 0) AS waiting_count
+       FROM counters c
+       JOIN counter_services cs ON cs.counter_id = c.id
+       LEFT JOIN (
+         SELECT counter_id, COUNT(*) AS waiting_count
+         FROM queue_tickets
+         WHERE status = 'waiting' AND ticket_date = CURRENT_DATE
+         GROUP BY counter_id
+       ) wc ON wc.counter_id = c.id
+       WHERE cs.service_id = $1 AND c.is_active = TRUE
+       ORDER BY waiting_count ASC, c.id ASC
+       LIMIT 1`,
+      [serviceId]
+    );
+
+    if (eligible.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No counter currently offers this service. Please ask a staff member for help.' });
+    }
+    const counter = eligible[0];
+
+    // One shared, strictly increasing sequence for the whole hospital —
+    // whichever counter issues the next ticket gets the next number,
+    // atomically, via the same INSERT ... ON CONFLICT DO UPDATE pattern
+    // each counter used to use on its own. Keyed only by ticket_date
+    // (not counter_id), so every counter draws from the same sequence
+    // instead of each starting back at 1.
+    const { rows: sequenceRows } = await client.query(
+      `INSERT INTO daily_ticket_sequence (ticket_date, last_number)
+       VALUES (CURRENT_DATE, 1)
+       ON CONFLICT (ticket_date)
+       DO UPDATE SET last_number = daily_ticket_sequence.last_number + 1, updated_at = CURRENT_TIMESTAMP
+       RETURNING last_number`
+    );
+    const number = sequenceRows[0].last_number;
+
+    await client.query(
+      `INSERT INTO queue_tickets (counter_id, service_id, ticket_date, ticket_number, status)
+       VALUES ($1, $2, CURRENT_DATE, $3, 'waiting')`,
+      [counter.id, serviceId, number]
+    );
+
+    await client.query('COMMIT');
+
+    const displayTicketNumber = `${number}`;
+
+    // Fire-and-forget — printTicket() catches its own errors (unreachable
+    // printer, not configured, etc.), so a printing problem never affects
+    // the ticket that's already been issued and committed above.
+    printTicket({
+      ticketNumber: displayTicketNumber,
+      counterName: counter.counter_name,
+      serviceName: service.service_name
+    });
+
+    res.status(201).json({
+      ticket_number: displayTicketNumber,
+      number,
+      counter_id: counter.id,
+      counter_number: counter.counter_number,
+      counter_name: counter.counter_name,
+      service_id: service.id,
+      service_name: service.service_name
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error issuing queue ticket:', err);
+    res.status(500).json({ error: 'Could not get a number right now. Please try again.' });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/queue/display — today's live waiting/serving tickets for
+// every active counter, for the public waiting-room display board
+// (public/display.html). No login required — this is meant to run
+// full-screen on a wall-mounted monitor, polled every few seconds.
+// Deliberately the same shape as GET /api/admin/queue (both call
+// getQueueSnapshot) and deliberately exposes nothing beyond serial
+// numbers, counter names, and service names — no patient-identifying
+// information ever passes through here.
+router.get('/queue/display', async (req, res) => {
+  try {
+    res.json(await getQueueSnapshot(db));
+  } catch (err) {
+    console.error('Error fetching queue display:', err);
+    res.status(500).json({ error: 'Could not load the queue.' });
   }
 });
 

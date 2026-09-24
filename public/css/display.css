@@ -1,0 +1,315 @@
+/* ==========================================================
+   Public waiting-room queue display — full-screen, view-only, no
+   interaction. Dark background + very large numerals are deliberate:
+   this runs on a wall-mounted TV viewed from several meters away, so
+   contrast and size matter far more than the light, friendly look of
+   the touchscreen kiosk pages.
+   ========================================================== */
+:root {
+  --bg: #0b1220;
+  --card: #131c30;
+  --card-border: #223050;
+  --ink: #eef2f8;
+  --ink-soft: #93a2bd;
+  --accent: #ffb020;
+  --accent-soft: rgba(255, 176, 32, 0.16);
+  --empty: #3d4a68;
+  --font-bangla: 'Hind Siliguri', 'Inter', system-ui, sans-serif;
+  --font-display: 'Manrope', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-bangla);
+}
+
+.board-header {
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  border-bottom: 2px solid var(--card-border);
+}
+.board-title {
+  font-family: var(--font-bangla);
+  font-weight: 700;
+  font-size: clamp(24px, 2.4vw, 36px);
+  margin: 0;
+  color: var(--ink);
+}
+.board-clock {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(22px, 2.2vw, 32px);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.board-main {
+  height: calc(100vh - 96px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  gap: 24px;
+  padding: 28px 40px;
+}
+.serving-grid {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  /* minmax(0, 1fr) instead of plain "auto" — rows fill the available
+     height exactly and are allowed to SHRINK, rather than growing to
+     fit whatever the tallest card's content wants. That growth is
+     exactly what caused the page to scroll when text sizes went up:
+     without this, a grid row happily gets taller than the viewport. */
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 24px;
+}
+.board-loading {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 22px;
+  align-self: center;
+}
+
+.counter-card {
+  background: var(--card);
+  border: 2px solid var(--card-border);
+  border-radius: 20px;
+  padding: 22px 26px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  /* A container query context sized on the card's own box — text below
+     scales off the card's real height (cqh), not viewport width (vw).
+     That's what vw-based sizing got wrong: it assumed one row of cards
+     always fills the viewport, so adding enough counters to wrap the
+     grid to a 2nd row (halving each card's height) still asked for
+     full-viewport-sized text and clipped the "Now Serving" number. */
+  container-type: size;
+}
+.counter-name {
+  font-family: var(--font-bangla);
+  font-weight: 700;
+  font-size: clamp(20px, 9cqh, 60px);
+  line-height: 1.15;
+  color: var(--ink-soft);
+  margin: 0 0 6px;
+  /* Wrap long names instead of truncating with an ellipsis, since
+     hiding part of the name is worse than taking two lines for it. */
+  white-space: normal;
+  overflow-wrap: break-word;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.now-serving {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 14px;
+  transition: background 0.4s ease;
+  overflow: hidden;
+}
+.now-serving-label {
+  font-family: var(--font-bangla);
+  font-weight: 700;
+  font-size: clamp(16px, 7cqh, 60px);
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+  margin: 0 0 10px;
+}
+.now-serving-number {
+  font-family: var(--font-display);
+  font-weight: 800;
+  /* Now Serving is the single most important thing on this board, so it
+     gets the largest share of container height (24cqh) of anything in
+     the card — everything else yields to it, not the other way round. */
+  font-size: clamp(48px, 24cqh, 190px);
+  line-height: 1;
+  color: var(--accent);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.now-serving-number.is-empty { color: var(--empty); font-size: clamp(36px, 16cqh, 120px); }
+.now-serving-service {
+  font-family: var(--font-bangla);
+  font-weight: 500;
+  font-size: clamp(11px, 3cqh, 17px);
+  color: var(--ink-soft);
+  margin: 6px 0 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Flash pulse the instant "now serving" changes — a color/glow pulse
+   rather than motion, so it's noticeable without needing sound and
+   without being distracting once it settles. Class is added/removed
+   by display.js. */
+.now-serving.just-changed {
+  animation: serving-flash 1.8s ease-out;
+}
+@keyframes serving-flash {
+  0%   { background: var(--accent-soft); box-shadow: 0 0 0 6px var(--accent-soft); }
+  100% { background: transparent; box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Single consolidated waiting-list card, shared by every counter —
+   replaces the old per-card waiting block so the room can see the
+   whole wait at a glance instead of scanning card by card. Lives as a
+   sidebar to the right of the Now Serving grid rather than stacked
+   below it. */
+.waiting-panel {
+  flex-shrink: 0;
+  width: clamp(420px, 32vw, 640px);
+  height: 100%;
+  min-height: 0;
+  background: var(--card);
+  border: 2px solid var(--card-border);
+  border-radius: 20px;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.waiting-panel-label {
+  font-family: var(--font-bangla);
+  font-weight: 700;
+  font-size: clamp(30px, 2.8vw, 42px);
+  color: var(--ink-soft);
+  margin: 0 0 14px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.waiting-groups {
+  /* flex: 1 makes this fill exactly the space left under the label, so
+     display.js can measure clientHeight and know the real, fixed budget
+     it has to fit chips into — instead of the box sizing to content and
+     then silently clipping whatever didn't fit. */
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+}
+.waiting-chips {
+  display: grid;
+  /* minmax(0, 1fr), not plain 1fr — a plain fr track's minimum is
+     "auto" (its content's min-content size), so an over-wide chip
+     would blow the column out past its equal share instead of just
+     shrinking/clipping inside it. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: flex-start;
+  gap: 16px;
+  width: 100%;
+}
+.waiting-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 10px 8px;
+}
+.waiting-chip-number {
+  font-family: var(--font-display);
+  font-weight: 800;
+  /* Large by design — this card exists so a patient can spot their
+     own number across the room, not just read it up close. Fixed at
+     one line: at two-per-row width, letting it wrap at the hyphen
+     looked far worse than capping the size a bit to keep "01-002" on
+     a single line. */
+  font-size: clamp(28px, 2.6vw, 40px);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.waiting-chip-divider {
+  align-self: stretch;
+  width: 2px;
+  background: var(--card-border);
+  flex-shrink: 0;
+}
+.waiting-chip-counter {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(17px, 1.6vw, 24px);
+  color: var(--ink-soft);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.waiting-chip-more {
+  grid-column: 1 / -1;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(28px, 2.6vw, 38px);
+  color: var(--ink-soft);
+  padding: 10px 22px;
+}
+.waiting-panel-empty {
+  font-size: clamp(18px, 1.6vw, 24px);
+  color: var(--empty);
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .now-serving.just-changed { animation: none; }
+}
+
+/* One-time prompt so a staff member can unlock voice announcements —
+   browsers block audio/speech until a real tap happens, and this screen
+   otherwise has no visitor interaction to trigger that. Shown once per
+   page load; display.js removes/hides it after the tap. */
+.sound-unlock-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 18, 32, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  cursor: pointer;
+}
+.sound-unlock-box {
+  text-align: center;
+  padding: 48px 64px;
+  border: 2px solid var(--card-border);
+  border-radius: 20px;
+  background: var(--card);
+}
+.sound-unlock-title {
+  font-family: var(--font-bangla);
+  font-weight: 700;
+  font-size: clamp(28px, 3vw, 44px);
+  color: var(--ink);
+  margin: 0 0 12px;
+}
+.sound-unlock-sub {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(16px, 1.6vw, 22px);
+  color: var(--ink-soft);
+  margin: 0;
+}

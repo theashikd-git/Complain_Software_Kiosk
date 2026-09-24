@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Services — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Your Opinion</div>
+    <nav id="sidebar-nav"></nav>
+    <a href="#" class="logout-link" id="logout-btn">Log out</a>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Services</h1>
+        <p>Define the services counters can offer — used when creating a counter, and on the kiosk's "Get a Serial Number" screen</p>
+      </div>
+    </div>
+
+    <div class="panel" style="padding: 18px 20px; margin-bottom: 20px;">
+      <div class="error-banner hidden" id="form-error"></div>
+      <form id="service-form" class="form-row">
+        <div class="field">
+          <label for="service_name">Service name</label>
+          <input type="text" id="service_name" placeholder="e.g. Report delivery" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Add Service</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="services-tbody">
+          <tr><td colspan="3" class="muted">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="/admin/js/common.js"></script>
+<script src="/admin/js/services.js"></script>
+</body>
+</html>

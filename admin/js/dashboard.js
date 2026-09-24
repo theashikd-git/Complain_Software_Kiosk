@@ -27,6 +27,7 @@
       const summary = await api(`/api/admin/dashboard/summary?date=${date}`);
       document.getElementById('stat-satisfied').textContent = summary.satisfied;
       document.getElementById('stat-complain').textContent = summary.complain;
+      document.getElementById('stat-served').textContent = summary.served;
       document.getElementById('stat-avg-rating').textContent =
         summary.avg_rating != null ? `${summary.avg_rating} \u2605` : '\u2013';
     } catch (err) {

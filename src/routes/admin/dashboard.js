@@ -89,7 +89,13 @@ router.get('/summary', async (req, res) => {
        GROUP BY submission_type`,
       [date]
     );
-    const summary = { satisfied: 0, complain: 0, avg_rating: null };
+    // Patients served in the queue that day — tickets finished via
+    // "Call Next" (status 'served'), across every counter.
+    const { rows: servedRows } = await db.query(
+      `SELECT COUNT(*) AS total FROM queue_tickets WHERE ticket_date = $1 AND status = 'served'`,
+      [date]
+    );
+    const summary = { satisfied: 0, complain: 0, avg_rating: null, served: Number(servedRows[0].total) };
     rows.forEach((r) => {
       summary[r.submission_type] = Number(r.total);
       if (r.submission_type === 'satisfied' && r.avg_rating !== null) {

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports — Patients served — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">Your Opinion</div>
+    <nav id="sidebar-nav"></nav>
+    <a href="#" class="logout-link" id="logout-btn">Log out</a>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Reports</h1>
+        <p>How many patients each employee served from the queue</p>
+      </div>
+    </div>
+
+    <div class="subtabs">
+      <a href="/admin/reports.html" class="subtab">Complaints</a>
+      <a href="/admin/served.html" class="subtab active">Patients served</a>
+    </div>
+
+    <div class="panel" style="padding: 18px 20px; margin-bottom: 20px;">
+      <form id="filter-form" class="form-row">
+        <div class="field">
+          <label for="from">From date</label>
+          <input type="date" id="from">
+        </div>
+        <div class="field">
+          <label for="to">To date</label>
+          <input type="date" id="to">
+        </div>
+        <div class="field">
+          <label for="search">Search employee</label>
+          <input type="text" id="search" placeholder="Name or code">
+        </div>
+        <button type="submit" class="btn btn-primary">Apply Filter</button>
+        <button type="button" class="btn btn-outline" id="export-btn">Download Excel</button>
+      </form>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card served">
+        <div class="num" id="total-served">–</div>
+        <div class="label">Patients served</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" id="total-employees">–</div>
+        <div class="label">Employees</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <table>
+        <thead>
+          <tr>
+            <th class="sortable" data-sort="name">Employee</th>
+            <th class="sortable" data-sort="code">Code</th>
+            <th class="sortable" data-sort="served">Patients served</th>
+            <th style="width: 30%;">Share</th>
+          </tr>
+        </thead>
+        <tbody id="served-tbody">
+          <tr><td colspan="4" class="muted">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="/admin/js/common.js"></script>
+<script src="/admin/js/served.js"></script>
+</body>
+</html>

@@ -60,6 +60,8 @@ function renderSidebar(activePage) {
   const items = [
     { key: 'dashboard', label: 'Dashboard', href: '/admin/dashboard.html' },
     { key: 'counters', label: 'Counters', href: '/admin/counters.html' },
+    { key: 'services', label: 'Services', href: '/admin/services.html' },
+    { key: 'queue', label: 'Queue', href: '/admin/queue.html' },
     { key: 'employees', label: 'Employees', href: '/admin/employees.html' },
     { key: 'shifts', label: 'Shifts', href: '/admin/shifts.html' },
     { key: 'roster', label: 'Roster', href: '/admin/roster.html' },

@@ -23,6 +23,8 @@
   --blue-soft: #e8eefc;
   --blue-line: #c6d6f7;
   --indigo-grad: linear-gradient(135deg, #5b6bf5 0%, #3f52d9 100%);
+  --indigo-line: #c9cef7;
+  --indigo-glow: rgba(63, 82, 217, 0.38);
 
   --gold: #f0a93a;
 
@@ -91,42 +93,6 @@ input:focus-visible,
 textarea:focus-visible {
   outline: 3px solid var(--blue);
   outline-offset: 2px;
-}
-
-/* ==========================================================
-   UI language toggle (বাংলা / EN) — floats above every screen,
-   independent of the on-screen keyboard's own input-language toggle.
-   ========================================================== */
-.ui-lang-toggle {
-  position: fixed;
-  top: 14px;
-  right: 14px;
-  z-index: 70;
-  display: flex;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 999px;
-  padding: 4px;
-  box-shadow: 0 6px 18px -8px rgba(35, 40, 90, 0.28);
-}
-.ui-lang-btn {
-  border: none;
-  background: transparent;
-  color: var(--ink-soft);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 13px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.ui-lang-btn.active { background: var(--blue); color: #fff; }
-.ui-lang-btn:active { transform: scale(0.95); }
-@media (max-width: 380px) {
-  .ui-lang-toggle { top: 8px; right: 8px; }
-  .ui-lang-btn { font-size: 12px; padding: 6px 11px; }
 }
 
 /* ==========================================================
@@ -369,6 +335,36 @@ textarea:focus-visible {
 .choice-box:active .choice-tap-hint {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Separate call-to-action below the Satisfied/Complain card — the
+   kiosk's third role (queue ticket) sits apart from the feedback pair
+   rather than competing inside the same card. */
+.serial-banner {
+  width: 100%;
+  max-width: 580px;
+  margin: 20px auto 0;
+  padding: 24px 24px;
+  border: none;
+  border-radius: 24px;
+  background: var(--indigo-grad);
+  box-shadow: 0 20px 40px -16px var(--indigo-glow), 0 1px 0 rgba(255, 255, 255, 0.25) inset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.serial-banner:active {
+  transform: scale(0.98);
+  box-shadow: 0 10px 22px -12px var(--indigo-glow), 0 0 0 3px rgba(255, 255, 255, 0.5) inset;
+}
+.serial-banner-label {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: #fff;
 }
 
 /* ==========================================================
@@ -744,6 +740,62 @@ audio { width: 100%; height: 34px; }
   font-size: 14px;
   font-weight: 600;
   margin-top: 14px;
+}
+
+/* ==========================================================
+   Get a Serial Number — queue/serial ticket result
+   ========================================================== */
+.ticket-card {
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto 28px;
+  padding: 36px 28px 30px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 28px;
+  box-shadow: 0 30px 70px -24px rgba(35, 40, 90, 0.28), 0 1px 0 rgba(255, 255, 255, 0.95) inset;
+  text-align: center;
+  animation: card-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.ticket-eyebrow {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  margin: 0 0 6px;
+}
+.ticket-number {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(52px, 15vw, 80px);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  background: var(--indigo-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 4px 0 18px;
+  animation: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.ticket-divider {
+  border: none;
+  border-top: 2px dashed var(--indigo-line);
+  margin: 0 0 16px;
+}
+.ticket-counter {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--ink);
+  margin: 0 0 4px;
+}
+.ticket-hint {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  margin: 0;
 }
 
 /* ==========================================================

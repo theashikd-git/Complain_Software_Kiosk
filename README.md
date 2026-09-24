@@ -108,7 +108,20 @@ DB_NAME=complain_software
 DB_USER=postgres
 DB_PASSWORD=your_postgres_password
 SESSION_SECRET=some_long_random_string
+PRINTER_IP=192.168.x.x
+PRINTER_PORT=9100
 ```
+`PRINTER_IP`/`PRINTER_PORT` point at the network receipt printer used by the
+"Get a Serial Number" feature (ESC/POS over raw TCP — see
+`src/utils/receiptPrinter.js`). Leave `PRINTER_IP` unset to skip printing
+entirely; a ticket is still issued either way, only the physical print is
+skipped.
+
+Serial numbers (1, 2, 3, ...) come from one shared, strictly increasing
+sequence for the whole hospital, not a separate count per counter — see
+`daily_ticket_sequence` in `schema.sql` and `POST /api/queue/ticket` in
+`src/routes/public.js`. No configuration needed; it resets to 1 automatically
+each day.
 
 ### 5. Create your first admin login
 ```bash

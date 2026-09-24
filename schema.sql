@@ -48,7 +48,12 @@ CREATE TABLE employees (
   designation    VARCHAR(100),
   phone          VARCHAR(30),
   is_active      BOOLEAN DEFAULT TRUE,
-  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  -- Login credential for the staff console (see src/routes/staff.js) —
+  -- employee_code doubles as the login id, so there's no separate
+  -- username column. NULL until an admin sets a password for this
+  -- employee, which is what actually grants them console access.
+  password_hash  VARCHAR(255)
 );
 
 -- ----------------------------------------------------------
@@ -98,6 +103,23 @@ INSERT INTO shifts (shift_name, start_time, end_time, shift_code, is_off) VALUES
 -- reference employees(id), which is defined above this point.
 -- ----------------------------------------------------------
 ALTER TABLE counters ADD COLUMN assigned_employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL;
+
+-- ----------------------------------------------------------
+-- Live staff-console claim on a counter — separate from
+-- assigned_employee_id above, which is an admin-set default/roster
+-- assignment. This instead tracks who is ACTUALLY logged into the
+-- staff console and working this counter right now (see
+-- src/routes/staff.js), so a second employee logging in can be warned
+-- before taking over. Cleared on logout, and only lasts for that one
+-- login session — picking a counter is not a standing assignment.
+-- ----------------------------------------------------------
+ALTER TABLE counters ADD COLUMN active_employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL;
+ALTER TABLE counters ADD COLUMN active_login_at TIMESTAMP;
+
+-- Expiry of a staff-console self-assignment: the picking employee stays the
+-- counter's assigned employee (after logout) only until their rostered shift
+-- ends. NULL = never expires (an admin's manual assignment).
+ALTER TABLE counters ADD COLUMN assigned_until TIMESTAMP;
 
 -- ----------------------------------------------------------
 -- Counter assignments — rostering / shifting
@@ -174,3 +196,112 @@ CREATE TABLE submission_counters (
 );
 
 CREATE INDEX idx_submission_counters_counter ON submission_counters (counter_id);
+
+-- ----------------------------------------------------------
+-- Queue tickets — per-counter, per-day serial numbers for the kiosk's
+-- "Get a Serial Number" feature (turns the kiosk into a simple queue-
+-- management tool alongside feedback/complaints).
+--
+-- Unused by ticket issuance — kept only so an existing deployment
+-- doesn't lose the table outright. Numbers used to be a separate
+-- per-counter, per-day sequence here, which is exactly what let two
+-- counters land on the same number; see daily_ticket_sequence below
+-- for the single shared sequence every counter now draws from.
+-- ----------------------------------------------------------
+CREATE TABLE queue_ticket_counters (
+  counter_id   INTEGER NOT NULL REFERENCES counters(id) ON DELETE CASCADE,
+  ticket_date  DATE NOT NULL,
+  last_number  INTEGER NOT NULL DEFAULT 0,
+  updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (counter_id, ticket_date)
+);
+
+-- One row per day; last_number is atomically incremented via
+-- INSERT ... ON CONFLICT DO UPDATE every time ANY counter issues a
+-- ticket (see POST /api/queue/ticket), so the whole hospital shares one
+-- strictly increasing sequence — 1, 2, 3, ... — for the day instead of
+-- each counter counting up on its own. Resets naturally every day since
+-- ticket_date is the primary key.
+-- ----------------------------------------------------------
+CREATE TABLE daily_ticket_sequence (
+  ticket_date  DATE PRIMARY KEY,
+  last_number  INTEGER NOT NULL DEFAULT 0,
+  updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ----------------------------------------------------------
+-- Services — admin-manageable list of services counters can provide
+-- (e.g. "Report delivery", "OPD and Diagnostic services"). Patients
+-- pick one of these on the kiosk's "Get a Serial Number" screen
+-- instead of picking a counter directly.
+-- ----------------------------------------------------------
+CREATE TABLE services (
+  id            SERIAL PRIMARY KEY,
+  service_name  VARCHAR(100) NOT NULL UNIQUE,
+  is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO services (service_name) VALUES
+  ('Report delivery'),
+  ('OPD and Diagnostic services'),
+  ('Admission'),
+  ('Emergency');
+
+-- ----------------------------------------------------------
+-- Which service(s) each counter offers — many-to-many, set from the
+-- admin Counters page. A counter can offer more than one service.
+--
+-- This is also how a counter "absorbs" another service's overflow
+-- with no special-case code: tagging the Report Delivery counter with
+-- BOTH "Report delivery" AND "OPD and Diagnostic services" lets it
+-- pick up OPD tickets automatically whenever it has fewer people
+-- waiting than OPD's own counter — see the "least-loaded eligible
+-- counter" query in POST /api/queue/ticket. That query just looks at
+-- whichever counters are tagged for the requested service; it doesn't
+-- know or care which service names are involved.
+-- ----------------------------------------------------------
+CREATE TABLE counter_services (
+  counter_id  INTEGER NOT NULL REFERENCES counters(id) ON DELETE CASCADE,
+  service_id  INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+  PRIMARY KEY (counter_id, service_id)
+);
+
+-- ----------------------------------------------------------
+-- Individual queue tickets — one row per issued serial number,
+-- tracking its status (waiting/serving/served) so the admin "Queue"
+-- page can show each counter's live waiting list, and so ticket
+-- issuance can tell which counters are currently busy vs free.
+--
+-- ticket_number is drawn from one shared, strictly increasing sequence
+-- for the whole hospital (daily_ticket_sequence above), not counted up
+-- per-counter, so the same number is never issued twice in a day no
+-- matter which counter issues it, and a plain number is enough to
+-- identify a ticket on its own.
+-- ----------------------------------------------------------
+CREATE TABLE queue_tickets (
+  id            SERIAL PRIMARY KEY,
+  counter_id    INTEGER NOT NULL REFERENCES counters(id) ON DELETE CASCADE,
+  service_id    INTEGER NOT NULL REFERENCES services(id),
+  ticket_date   DATE NOT NULL DEFAULT CURRENT_DATE,
+  ticket_number INTEGER NOT NULL,
+  status        VARCHAR(10) NOT NULL DEFAULT 'waiting'
+                  CHECK (status IN ('waiting', 'serving', 'served')),
+  issued_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  called_at     TIMESTAMP NULL,
+  served_at     TIMESTAMP NULL,
+  -- Belt-and-braces: daily_ticket_sequence's atomic upsert already
+  -- makes a duplicate number effectively impossible, but this makes it
+  -- impossible at the database level regardless of how a row got
+  -- inserted. Not scoped to "active only" — under a plain increasing
+  -- sequence a number is never reused at all within the same day, served
+  -- or not.
+  CONSTRAINT uniq_ticket_number_per_day UNIQUE (ticket_date, ticket_number)
+);
+
+-- Which employee pressed "Call Next" to finish (serve) this ticket, for the
+-- Reports page's patients-served-by-employee section. NULL when finished from
+-- the admin Queue page, or for tickets served before this column existed.
+ALTER TABLE queue_tickets ADD COLUMN served_by_employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL;
+
+CREATE INDEX idx_queue_tickets_counter_date_status ON queue_tickets (counter_id, ticket_date, status);
