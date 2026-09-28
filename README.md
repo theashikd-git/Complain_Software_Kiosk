@@ -1,299 +1,261 @@
-# Your Opinion — Patient Feedback / Complaint System
+<div align="center">
 
-A hospital patient feedback / complaint kiosk system: a touchscreen-friendly
-public screen for patients, a queue / serial-number system, a staff console,
-and an admin panel for managing counters, services, employee rosters, and
-complaints. Built with **Node.js + Express + PostgreSQL**.
+# 🏥 Your Opinion
 
----
+**Patient feedback, complaint & queue system for hospitals**
 
-## Contents
+![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-4-000000?logo=express&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13%2B-4169E1?logo=postgresql&logoColor=white)
+![Debian](https://img.shields.io/badge/Debian-ready-A81D33?logo=debian&logoColor=white)
 
-- [Quick install (Debian server)](#quick-install-debian-server)
-- [Updating to a new version](#updating-to-a-new-version)
-- [Rolling back](#rolling-back)
-- [Releasing a new version (developer workflow)](#releasing-a-new-version-developer-workflow)
-- [Database migrations](#database-migrations)
-- [What's included](#whats-included)
-- [Project structure](#project-structure)
-- [Manual install (any Linux/Mac/Windows machine)](#manual-install-any-linuxmacwindows-machine)
-- [Managing the service](#managing-the-service-debian-install)
-- [Backups](#backups)
-- [Voice complaints](#voice-complaints)
-- [Deploying kiosk touchscreens](#deploying-kiosk-touchscreens)
-- [Notes](#notes)
+[Install](#-quick-install) · [Update](#-updating) · [Release](#-releasing-a-new-version) · [Migrations](#-database-migrations) · [Kiosks](#-kiosk-touchscreens)
+
+</div>
 
 ---
 
-## Quick install (Debian server)
+## ✨ Features
 
-Run this as **root** on a fresh Debian server. It installs Node.js and
-PostgreSQL, clones this repo, sets up the database, creates an admin login,
-and runs the app as a systemd service:
+| | Feature | Description |
+|---|---|---|
+| 😊 | **Feedback kiosk** | Touchscreen screen with *Satisfied* (1–5 stars) and *Complain* (typed or voice) |
+| 🎫 | **Serial numbers** | Patients pick a service; tickets go to the least-busy counter and print on a receipt printer |
+| 👩‍💼 | **Staff console** | Employees log in to a counter and call the next patient |
+| 🔐 | **Admin panel** | Dashboard, counters, services, employees, roster/shifts, queue and reports |
+
+| Screen | URL |
+|---|---|
+| Kiosk | `http://<server-ip>:3000/` |
+| Staff console | `http://<server-ip>:3000/staff` |
+| Admin panel | `http://<server-ip>:3000/admin` |
+
+---
+
+## 🚀 Quick install
+
+On a fresh **Debian** server, as **root**:
 
 ```bash
+# 1. Install
 curl -fsSL https://raw.githubusercontent.com/theashikd-git/Complain_Software_Kiosk/main/install-debian.sh | sudo bash
-```
 
-Then run the updater once, so every database migration is applied and the
-server is on the latest release:
-
-```bash
+# 2. Apply all migrations and move to the latest release
 curl -fsSL https://raw.githubusercontent.com/theashikd-git/Complain_Software_Kiosk/main/update-debian.sh | sudo bash
-```
 
-When the installer finishes it prints:
-
-- the kiosk URL (`http://<server-ip>:3000/`)
-- the admin panel URL (`http://<server-ip>:3000/admin`)
-- the auto-generated database password (also saved in `.env` on the server)
-
-> **Security:** the installer creates a default `admin` / `admin` login.
-> Log in immediately, create a new admin with a strong password
-> (`node seed-admin.js <user> <password> "<Full Name>"`), and remove the
-> default one.
-
-### Set the server timezone
-
-Daily serial numbers reset at midnight and reports are grouped by date, both
-based on the server's clock. Set it to local time right after installing:
-
-```bash
+# 3. Set local time (serial numbers reset at midnight)
 timedatectl set-timezone Asia/Dhaka
 systemctl restart postgresql complain-software
 ```
 
+> [!WARNING]
+> The installer creates a default **`admin` / `admin`** login. Log in right away, create your own admin, and remove the default:
+> ```bash
+> cd /opt/complain-software && node seed-admin.js <username> "<password>" "<Full Name>"
+> ```
+
 ---
 
-## Updating to a new version
+## 🔄 Updating
 
-Run as **root** on the server, preferably outside OPD hours (the app
-restarts for a few seconds):
+Run on the server as **root**, preferably **outside OPD hours**:
 
 ```bash
-# Install a specific release (recommended)
 curl -fsSL https://raw.githubusercontent.com/theashikd-git/Complain_Software_Kiosk/main/update-debian.sh | sudo VERSION=v1.0.2 bash
-
-# Or install whatever is currently on the main branch
-curl -fsSL https://raw.githubusercontent.com/theashikd-git/Complain_Software_Kiosk/main/update-debian.sh | sudo bash
 ```
 
-If you are already logged in as root (`sudo -i`), drop the `sudo`:
-`... | VERSION=v1.0.2 bash`
+| Goal | Add before `bash` |
+|---|---|
+| Install a specific release | `VERSION=v1.1.0` |
+| Install latest `main` | *(nothing)* |
+| Undo the last update | `ROLLBACK=1` |
 
-The updater:
+> [!TIP]
+> Already root (`sudo -i`)? Drop `sudo`: `... | VERSION=v1.1.0 bash`
 
-1. Backs up the database to `/var/backups/complain-software/` (keeps the last 10)
-2. Moves the code to the requested version
-3. Installs npm dependencies
-4. Runs only the **new** migrations, in the order listed in `migrations.order`
-5. Restarts the service and checks that it came up
+**What the updater does:**
 
-If a migration fails or the app won't start, the updater automatically puts
-the previous code back and restarts it, so the hospital is never left with a
-broken system.
+1. 💾 Backs up the database
+2. 📥 Switches the code to the requested version
+3. 📦 Installs dependencies
+4. 🗃️ Runs only **new** migrations, in `migrations.order` order
+5. ♻️ Restarts the app and checks it's running
 
-It never touches `.env`, uploaded voice recordings, or existing data. It
-**does** overwrite the app's code files, so never hand-edit code directly on
-the server. Those changes would be lost on the next update.
+If anything fails, it **automatically restores the previous version**, so the hospital is never left with a broken system.
 
-### Check which version is installed
+> [!IMPORTANT]
+> Never edit code directly on the server. Updates overwrite code files. Your `.env`, voice recordings and data are never touched.
+
+<details>
+<summary><b>🔧 Troubleshooting a failed update</b></summary>
+
+<br>
+
+**"… already exists"**: that change is already in the database. Mark it done, then update again:
+
+```bash
+echo migration_xxx.sql >> /opt/complain-software/.applied_migrations
+```
+
+**Any other error** (e.g. "does not exist"): do **not** mark it done. Fix the migration or its position in `migrations.order`, release a new version, and update again.
+
+**Check the installed version:**
 
 ```bash
 cd /opt/complain-software && git describe --tags
 ```
 
-### If a migration fails
-
-The updater prints the error and restores the previous version.
-
-- If the error says something **already exists**, that change is already in
-  your database. Mark it as done with the line the updater prints, e.g.
-  ```bash
-  echo migration_xxx.sql >> /opt/complain-software/.applied_migrations
-  ```
-  and run the update again.
-- If it's **any other error** (e.g. "does not exist", syntax error), do not
-  mark it as done. Fix the migration or its order in `migrations.order`,
-  release a new version, and update again.
+</details>
 
 ---
 
-## Rolling back
+## 🏷️ Releasing a new version
 
-Go back to the version that was running before the last update:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/theashikd-git/Complain_Software_Kiosk/main/update-debian.sh | sudo ROLLBACK=1 bash
+```
+dev  ──●──●──●──────●──●─────▶   daily work
+             \           \
+main ─────────●───────────●──▶   tested code
+            v1.1.0      v1.2.0    ← tags installed on servers
 ```
 
-Or install any older release directly with `VERSION=v1.0.0`.
-
-Rollback reverts the **code only**, not database changes. If you need the
-database exactly as it was, restore a backup (see [Backups](#backups)).
-
----
-
-## Releasing a new version (developer workflow)
-
-Branches:
-
-- **`dev`**: day-to-day work, not deployed anywhere
-- **`main`**: tested code, ready for the hospital
-- **Tags** (`v1.0.0`, `v1.1.0`, ...): the exact versions installed on servers
-
-### 1. Work on `dev`
-
 ```bash
+# 1. Work on dev
 git checkout dev
-git pull
-# ... make changes, test locally with: npm run dev
-git add .
-git commit -m "Describe the change"
-git push
-```
+git add . && git commit -m "Describe the change" && git push
 
-### 2. When tested, merge into `main`
+# 2. When tested, merge to main
+git checkout main && git pull
+git merge dev && git push
 
-```bash
-git checkout main
-git pull
-git merge dev
-git push
-```
+# 3. Tag the release
+git tag -a v1.1.0 -m "What's new" && git push origin v1.1.0
 
-### 3. Tag the release
-
-```bash
-git tag -a v1.1.0 -m "Short description of this release"
-git push origin v1.1.0
-```
-
-### 4. Update the server
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/theashikd-git/Complain_Software_Kiosk/main/update-debian.sh | sudo VERSION=v1.1.0 bash
-```
-
-### 5. Switch back to `dev`
-
-```bash
+# 4. Back to dev
 git checkout dev
 ```
 
-### Version numbers
+Then [update the server](#-updating) with `VERSION=v1.1.0`.
 
-Use `vMAJOR.MINOR.PATCH`:
-
-| Change | Example | When |
+| Change | Example | Use for |
 |---|---|---|
-| Patch | `v1.1.0` → `v1.1.1` | Bug fixes only |
-| Minor | `v1.1.0` → `v1.2.0` | New features, new pages, new migrations |
-| Major | `v1.2.0` → `v2.0.0` | Big changes that break old behavior |
+| **Patch** | `v1.1.0 → v1.1.1` | Bug fixes |
+| **Minor** | `v1.1.0 → v1.2.0` | New features or migrations |
+| **Major** | `v1.2.0 → v2.0.0` | Breaking changes |
 
-### Useful commands
+<details>
+<summary><b>📋 Useful git commands</b></summary>
 
-```bash
-git tag                          # list all versions
-git log --oneline --decorate -10 # recent commits and which tags are on them
-git branch                       # current branch (marked with *)
-git diff v1.0.0 v1.1.0 --stat    # what changed between two versions
-```
-
-### If you tagged the wrong commit
+<br>
 
 ```bash
+git tag                          # list versions
+git log --oneline --decorate -10 # recent commits and their tags
+git diff v1.0.0 v1.1.0 --stat    # what changed between versions
+
+# Tagged the wrong commit?
 git tag -d v1.1.0
 git push origin --delete v1.1.0
-# then create the tag again on the correct commit
 ```
+
+</details>
 
 ---
 
-## Database migrations
+## 🗃️ Database migrations
 
-Database changes are made with `migration_*.sql` files in the project root.
+Schema changes live in `migration_*.sql` files. **`migrations.order`** decides the order they run in, because later migrations often depend on earlier ones.
 
-**`migrations.order` controls the order they run in.** Migrations often
-depend on each other (e.g. one creates a table that the next one changes),
-so the order matters.
+**Adding a migration:**
 
-### Adding a new migration
-
-1. Create a new file, e.g. `migration_patient_phone.sql`.
-2. Write it so it is **safe to re-run**:
+1. Create `migration_<name>.sql` and make it **safe to re-run**:
    ```sql
    CREATE TABLE IF NOT EXISTS ...;
    ALTER TABLE complaints ADD COLUMN IF NOT EXISTS patient_phone VARCHAR(20);
    CREATE INDEX IF NOT EXISTS ...;
    ```
-   For constraints, wrap them in a `DO $$ ... IF NOT EXISTS ... $$` block
-   (see `migration_queue_tickets_unique.sql` for an example).
-3. Add its file name at the **bottom** of `migrations.order`.
-4. If it's needed on fresh installs too, add the same change to `schema.sql`.
-5. Commit the migration and `migrations.order` together, then release a new version.
+2. Add the file name to the **bottom** of `migrations.order`
+3. Add the same change to `schema.sql` for fresh installs
+4. Commit both files together and [release a new version](#%EF%B8%8F-releasing-a-new-version)
 
-### Rules
+> [!CAUTION]
+> - Never edit a migration that has already run on a server. Add a new one instead.
+> - Never reorder or delete lines in `migrations.order`. Only add at the bottom.
 
-- **Never edit a migration after it has run on a server.** The server won't
-  run it again. Always add a new migration instead.
-- **Never reorder or remove lines** in `migrations.order`; only add at the bottom.
-
-### How the server tracks migrations
-
-Each server keeps a list of migrations already applied in
-`/opt/complain-software/.applied_migrations`. The updater only runs files
-listed in `migrations.order` that are not in that list yet.
+Each server records what it has applied in `/opt/complain-software/.applied_migrations`.
 
 ---
 
-## What's included
+## 🛠️ Server management
 
-- **Public kiosk** (`/`): the "Your Opinion" screen with two buttons:
-  - **Satisfied 😊**: a happy face and a 5-star rating. Tapping a star
-    submits immediately.
-  - **Complain 😠**: a form with three parts: what happened (typed or
-    voice-recorded), which counter(s) were visited (at least one required),
-    and identification (OPD ID / IPD ID / DIAG ID / patient name, all
-    optional).
-- **Get a Serial Number**: patients pick a service; the ticket is routed to
-  the eligible counter with the fewest people waiting, and a receipt is
-  printed on the network printer. Serial numbers come from one shared,
-  increasing sequence for the whole hospital and reset to 1 each day.
-- **Staff console** (`/staff`): employees log in to a counter and call the
-  next patient. Warns if another employee is already working that counter.
-- **Hidden admin panel** (`/admin`): not linked from the public site, but
-  protected by a real login. Dashboard, Counters, Services, Employees,
-  Roster/Shifts (with overlap protection), Queue, and Reports.
+| Task | Command |
+|---|---|
+| Status | `systemctl status complain-software` |
+| Restart | `systemctl restart complain-software` |
+| Live logs | `journalctl -u complain-software -f` |
+| Version | `cd /opt/complain-software && git describe --tags` |
 
-## Project structure
+### 💾 Backups
 
+The updater keeps the **last 10** database backups in `/var/backups/complain-software/`.
+
+```bash
+# Manual backup
+su - postgres -c "pg_dump -Fc complain_software" > /var/backups/complain-software/manual_$(date +%Y%m%d_%H%M).dump
+
+# Restore (⚠️ replaces all current data)
+systemctl stop complain-software
+su - postgres -c "pg_restore --clean --if-exists -d complain_software" < /var/backups/complain-software/<file>.dump
+systemctl start complain-software
 ```
-admin/                 Admin panel (HTML/CSS/JS)
-public/                Kiosk frontend: the patient-facing screen
-staff/                 Staff console for counter employees
-src/                   Backend: Express routes, DB config, middleware, utils
-kiosk/                 Windows launcher files for kiosk touchscreens
-schema.sql             Full database schema for fresh installs
-migration_*.sql        Incremental schema changes for existing databases
-migrations.order       The order migrations must run in
-server.js              App entry point
-seed-admin.js          Creates an admin login
-install-debian.sh      One-paste installer for a fresh Debian server
-update-debian.sh       One-paste updater / rollback for an installed server
-.gitignore             Excludes node_modules/, .env, logs
-```
+
+> [!NOTE]
+> Rollback reverts **code only**. To undo database changes, restore a backup. Copy backups to another machine regularly.
 
 ---
 
-## Manual install (any Linux/Mac/Windows machine)
+## 🖥️ Kiosk touchscreens
 
-### 1. Prerequisites
+Browsers only allow microphone access (for voice complaints) on `https://` or `localhost`. The `kiosk/` folder contains Windows files that fix this for your server's LAN address.
 
-- **Node.js** 18 or newer
-- **PostgreSQL** 13 or newer
+| File | Purpose |
+|---|---|
+| `trust-server-origin.reg` / `-chrome.reg` | Lets Edge / Chrome use the microphone on your server's address |
+| `start-kiosk.bat` / `-chrome.bat` | Opens the kiosk fullscreen. Put a shortcut in the Startup folder |
 
-### 2. Clone and install dependencies
+**Per kiosk device:**
+
+1. Edit the `.reg` and `.bat` files and replace the placeholder IP with your server's IP
+2. Double-click the `.reg` file and accept the admin prompt
+3. Fully close the browser (check Task Manager for leftover `msedge.exe` / `chrome.exe`)
+4. Open `edge://policy` or `chrome://policy`, click **Reload policies**, and confirm `OverrideSecurityRestrictionsOnInsecureOrigin` shows your server
+
+> [!TIP]
+> Give the server a **static IP** (DHCP reservation on the router). If it changes, every kiosk must be reconfigured.
+
+<details>
+<summary><b>🔍 Registry values (for manual setup)</b></summary>
+
+<br>
+
+| Browser | Registry path |
+|---|---|
+| Edge | `HKLM\SOFTWARE\Policies\Microsoft\Edge\OverrideSecurityRestrictionsOnInsecureOrigin` |
+| Chrome | `HKLM\SOFTWARE\Policies\Google\Chrome\OverrideSecurityRestrictionsOnInsecureOrigin` |
+
+Value: a **String** named `1`, with data `http://<your-server-ip>:3000`
+
+</details>
+
+---
+
+## 💻 Manual install / development
+
+<details>
+<summary><b>Show steps (any Linux, Mac or Windows machine)</b></summary>
+
+<br>
+
+**Requirements:** Node.js 18+ and PostgreSQL 13+
 
 ```bash
 git clone https://github.com/theashikd-git/Complain_Software_Kiosk.git
@@ -301,12 +263,7 @@ cd Complain_Software_Kiosk
 npm install
 ```
 
-### 3. Set up PostgreSQL
-
-Create the database, load the schema, then run every migration in the order
-listed in `migrations.order`.
-
-**Linux / Mac:**
+**Database (Linux / Mac):**
 
 ```bash
 createdb -U postgres -E UTF8 complain_software
@@ -316,23 +273,18 @@ grep -vE '^\s*(#|$)' migrations.order | while read -r m; do
 done
 ```
 
-**Windows (PowerShell):**
+**Database (Windows PowerShell):**
 
 ```powershell
 createdb -U postgres -E UTF8 complain_software
 psql -U postgres -d complain_software -f schema.sql
-Get-Content migrations.order | Where-Object { $_ -and -not $_.StartsWith('#') } | ForEach-Object {
-  psql -U postgres -d complain_software -f $_
-}
+Get-Content migrations.order | Where-Object { $_ -and -not $_.StartsWith('#') } |
+  ForEach-Object { psql -U postgres -d complain_software -f $_ }
 ```
 
-Add `-h localhost` if you connect over TCP rather than a local socket.
+**Create `.env`** in the project root:
 
-### 4. Configure environment
-
-Create a file named `.env` in the project root:
-
-```
+```ini
 PORT=3000
 DB_HOST=localhost
 DB_PORT=5432
@@ -340,146 +292,44 @@ DB_NAME=complain_software
 DB_USER=postgres
 DB_PASSWORD=your_postgres_password
 SESSION_SECRET=some_long_random_string
-PRINTER_IP=192.168.x.x
+PRINTER_IP=192.168.x.x      # leave unset to skip printing
 PRINTER_PORT=9100
 ```
 
-`PRINTER_IP` / `PRINTER_PORT` point at the network receipt printer used by
-"Get a Serial Number" (ESC/POS over raw TCP, see
-`src/utils/receiptPrinter.js`). Leave `PRINTER_IP` unset to skip printing; a
-ticket is still issued either way.
-
-### 5. Create your first admin login
+**Create an admin and start:**
 
 ```bash
 node seed-admin.js admin "YourStrongPassword" "Your Full Name"
+npm run dev     # development, auto-restart
+npm start       # production
 ```
 
-### 6. Run the server
-
-```bash
-npm start
-```
-
-- Kiosk screen: `http://localhost:3000/`
-- Admin panel: `http://localhost:3000/admin`
-
-For development with auto-restart on file changes: `npm run dev`.
+</details>
 
 ---
 
-## Managing the service (Debian install)
+## 📁 Project structure
 
-```bash
-systemctl status complain-software     # is it running?
-systemctl restart complain-software    # restart
-systemctl stop complain-software       # stop
-journalctl -u complain-software -f     # live logs
+```
+├── admin/              Admin panel
+├── public/             Patient kiosk screen
+├── staff/              Staff console
+├── src/                Backend (routes, DB, middleware, utils)
+├── kiosk/              Windows kiosk setup files
+├── schema.sql          Full schema for fresh installs
+├── migration_*.sql     Incremental database changes
+├── migrations.order    Migration run order
+├── install-debian.sh   One-command installer
+├── update-debian.sh    One-command updater / rollback
+└── server.js           App entry point
 ```
 
 ---
 
-## Backups
+## 📝 Notes
 
-The updater saves a database backup before every update in
-`/var/backups/complain-software/` (the last 10 are kept).
-
-Take a backup manually at any time:
-
-```bash
-su - postgres -c "pg_dump -Fc complain_software" > /var/backups/complain-software/manual_$(date +%Y%m%d_%H%M).dump
-```
-
-Restore a backup (**this replaces all current data**):
-
-```bash
-systemctl stop complain-software
-su - postgres -c "pg_restore --clean --if-exists -d complain_software" < /var/backups/complain-software/<backup-file>.dump
-systemctl start complain-software
-```
-
-Copy backups to another machine regularly. A backup on the same disk won't
-survive a disk failure.
-
----
-
-## Voice complaints
-
-Recordings are captured in the browser (microphone permission required),
-uploaded to the server, and saved under `public/uploads/voice/`. Admins play
-them back from the Dashboard and Reports pages. This folder is kept empty in
-git: recordings are patient data and are never committed to the repository.
-
-## Deploying kiosk touchscreens
-
-Point kiosk tablets/PCs at `http://<server-ip>:3000/` and staff devices at
-`http://<server-ip>:3000/admin` or `/staff`.
-
-Browsers block microphone access on a plain LAN address (`http://<ip>`) by
-default; it's only allowed on `https://` or `localhost`. The `kiosk/` folder
-contains Windows files that work around this:
-
-- `trust-server-origin.reg` / `trust-server-origin-chrome.reg`: registry
-  policies telling Edge/Chrome to trust the server's address for microphone
-  access. Run once per kiosk device (as admin), then fully close and reopen
-  the browser.
-- `start-kiosk.bat` / `start-kiosk-chrome.bat`: fullscreen kiosk-mode
-  launchers. Put a shortcut to one of these in the kiosk account's Startup
-  folder so it boots straight into the feedback screen.
-
-**Before using these, edit them to replace the placeholder IP with your
-server's actual address.**
-
-### What the registry files set
-
-**Edge:**
-
-```
-Path:  HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge\OverrideSecurityRestrictionsOnInsecureOrigin
-Name:  1        (a String value named "1")
-Data:  http://<your-server-ip>:3000
-```
-
-**Chrome:**
-
-```
-Path:  HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\OverrideSecurityRestrictionsOnInsecureOrigin
-Name:  1        (a String value named "1")
-Data:  http://<your-server-ip>:3000
-```
-
-This makes the browser treat that one `http://` address as a secure origin,
-which unlocks microphone access for the voice complaint feature on that
-address only.
-
-**Setup steps per kiosk device:**
-
-1. Edit the `.reg` file: replace the placeholder IP with the server's LAN IP
-   and port (matching `PORT` in `.env`).
-2. Double-click the `.reg` file and accept the admin/UAC prompt.
-3. Fully close the browser. Check Task Manager for leftover `msedge.exe` /
-   `chrome.exe` processes, which can stop the policy taking effect.
-4. Reopen the browser, go to `edge://policy` or `chrome://policy`, click
-   "Reload policies", and confirm `OverrideSecurityRestrictionsOnInsecureOrigin`
-   shows your server's address.
-
-If the server's IP ever changes, the `.reg` and `.bat` files must be updated
-and re-applied on every kiosk. Give the server a static IP (a DHCP
-reservation on the router) to avoid this.
-
-## Notes
-
-- The admin route isn't linked on the public site, but every admin API call
-  still requires a real login session.
-- Counters must be created (and active) before they appear on the kiosk's
-  complaint form. Counters must be tagged with at least one service before
-  they can receive serial-number tickets.
-- The Roster page assigns one employee at a time to a counter/shift;
-  selecting several employees for one counter creates several rows. Roster
-  edits are overlap-protected.
-- A complaint can name more than one counter; the Dashboard and Reports show
-  each counter along with whoever was rostered on it at the time.
-- Satisfied submissions carry only a 1–5 star rating; the Dashboard and
-  Reports show the daily/filtered average.
-- Admin login sessions are currently kept in memory, so admins are logged
-  out whenever the service restarts (including after an update).
+- 🔒 The admin panel isn't linked publicly, but every admin request still requires a login.
+- 🏷️ Counters must be **active** to appear on the complaint form, and **tagged with a service** to receive tickets.
+- 📅 Roster assignments are overlap-protected: an employee can't be on two counters at the same time.
+- 🎙️ Voice recordings are stored in `public/uploads/voice/` and are **never committed** to git (patient data).
+- 🔁 Admin sessions are kept in memory, so admins are logged out whenever the app restarts.
