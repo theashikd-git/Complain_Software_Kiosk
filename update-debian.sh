@@ -122,11 +122,15 @@ for m in "${MIGRATIONS[@]}"; do
   [ -f "$APP_DIR/$m" ] || continue
   grep -qxF "$m" "$APPLIED" && continue
   echo "-> $m"
-  if su - postgres -c "psql -v ON_ERROR_STOP=1 --single-transaction -q -d '$DB_NAME' -f -" < "$APP_DIR/$m"; then
+  # Files with their own BEGIN/COMMIT manage their own transaction;
+  # wrap the rest in one so a failure never leaves them half-applied.
+  TX="--single-transaction"
+  grep -qiE '^[[:space:]]*BEGIN[[:space:]]*;' "$APP_DIR/$m" && TX=""
+  if su - postgres -c "psql -v ON_ERROR_STOP=1 $TX -q -d '$DB_NAME' -f -" < "$APP_DIR/$m"; then
     echo "$m" >> "$APPLIED"
     RAN=$((RAN+1))
   else
-    echo "!! Migration $m failed (it was rolled back, nothing half-applied)."
+    echo "!! Migration $m failed and was stopped."
     echo "!! If this change is ALREADY in your database, mark it as done with:"
     echo "!!   echo $m >> $APPLIED"
     echo "!! and run the update again."
