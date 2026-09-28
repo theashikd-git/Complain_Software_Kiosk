@@ -38,6 +38,10 @@
           <datalist id="counter-name-suggestions"></datalist>
         </div>
         <div class="field">
+          <label for="counter_name_bn">Bangla name (optional)</label>
+          <input type="text" id="counter_name_bn" placeholder="e.g. ওপিডি রিসেপশন" autocomplete="off">
+        </div>
+        <div class="field">
           <label for="assigned_employee_id">Default employee</label>
           <select id="assigned_employee_id">
             <option value="">— Unassigned —</option>
@@ -54,10 +58,10 @@
     <div class="panel">
       <table>
         <thead>
-          <tr><th>Number</th><th>Name</th><th>Services</th><th>Assigned Employee (Now)</th><th>Status</th><th></th></tr>
+          <tr><th>Number</th><th>Name</th><th>Bangla name</th><th>Services</th><th>Assigned Employee (Now)</th><th>Status</th><th></th></tr>
         </thead>
         <tbody id="counters-tbody">
-          <tr><td colspan="6" class="muted">Loading…</td></tr>
+          <tr><td colspan="7" class="muted">Loading…</td></tr>
         </tbody>
       </table>
     </div>

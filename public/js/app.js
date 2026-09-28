@@ -13,6 +13,236 @@
 // creating a second one — see openComplainScreen() and the submit handler.
 // ==========================================================
 
+// ==========================================================
+// UI LANGUAGE (বাংলা / English) — Bangla is the default on every fresh
+// kiosk session; a patient's explicit choice is remembered in
+// localStorage for next time. This is separate from the on-screen
+// keyboard's own EN/বাংলা toggle further down, which only controls what
+// characters typing produces. Counter names, service names, and the
+// id_type values sent to the server stay in their original English/
+// admin-entered form regardless of UI language — only this screen's own
+// chrome (titles, labels, placeholders, messages) is translated.
+// ==========================================================
+const I18N = {
+  en: {
+    docTitle: 'Your Opinion',
+    opinionTitle: 'Your Opinion',
+    opinionSub: 'Tell us how your visit went today',
+    choiceSatisfiedLabel: 'Satisfied',
+    choiceComplainLabel: 'Complain',
+    tapHint: 'Tap to continue',
+    serialBannerLabel: 'Get a Serial Number',
+    backChevron: '‹ Back',
+    satisfiedTitle: 'Glad to hear it!',
+    satisfiedSub: 'Tap a star to rate your visit',
+    complainTitle: 'Tell us what happened',
+    whatHappenedTitle: 'What happened?',
+    complaintPlaceholder: 'Type your complaint here...',
+    voiceRecordLabel: 'Record voice complaint',
+    voiceStopLabel: 'Tap to stop recording',
+    voiceRemoveLabel: 'Remove recording',
+    counterTitle: 'Which counter did you visit?',
+    counterHint: 'Select one or more',
+    counterLoading: 'Loading counters...',
+    counterEmpty: 'No counters have been set up yet. Please ask a staff member for help.',
+    counterError: 'Could not load counters. Please check your connection.',
+    idTitle: 'How should we identify you?',
+    idOpd: 'OPD ID',
+    idIpd: 'IPD ID',
+    idDiag: 'DIAG ID',
+    idName: 'Patient Name',
+    idClear: 'Clear',
+    enterValueDefault: 'Enter value',
+    enterValueFor: (type) => `Enter ${type}`,
+    placeholderFullName: 'Full name',
+    placeholderIdExample: (code) => `e.g. ${code}`,
+    submitLabel: 'Submit',
+    startOverLabel: 'Start Over',
+    serialTitle: 'Get a Serial Number',
+    serialSub: 'Select the service you need',
+    serialLoading: 'Loading services...',
+    serialEmpty: 'No services have been set up yet. Please ask a staff member for help.',
+    serialLoadError: 'Could not load services. Please check your connection.',
+    getMyNumberLabel: 'Get My Number',
+    ticketEyebrow: 'Your number is',
+    ticketHint: 'Please wait to be called. Keep this number in mind.',
+    errNoText: 'Please tell us what happened, in text or voice.',
+    errNoCounter: 'Please select at least one counter you visited.',
+    errNoId: 'Please tell us how to identify you — pick one option below and enter it.',
+    errNoRating: 'Please tap a star to rate your visit.',
+    errNoService: 'Please select a service first.',
+    errVoiceSecure: 'Voice recording needs a secure connection. It works at http://localhost on this machine, but not over a plain http://<ip> LAN address — ask staff to set up HTTPS for kiosk devices, or type the complaint instead.',
+    errVoiceUnsupported: 'Voice recording isn’t supported in this browser. You can still type your complaint.',
+    errMicDenied: 'Microphone access was denied. Please allow the microphone permission for this page (check the address bar) and try again.',
+    errMicMissing: 'No microphone was found on this device. You can still type your complaint.',
+    errMicBusy: 'The microphone is already in use by another app. Close it and try again.',
+    errVoiceGeneric: (msg) => `Could not start voice recording: ${msg}. You can still type your complaint.`,
+    errSubmitFailed: 'Submission failed.',
+    errRatingFailed: 'Could not submit rating.',
+    errTicketFailed: 'Could not get a number right now. Please try again.',
+    doneSatisfiedTitle: 'Thank you!',
+    doneSatisfiedSub: 'We’re glad your visit went well.',
+    doneComplainTitle: 'Complaint received',
+    doneComplainSub: 'Thank you for letting us know. We will look into this.'
+  },
+  bn: {
+    docTitle: 'আপনার মতামত',
+    opinionTitle: 'আপনার মতামত',
+    opinionSub: 'আজ আপনার ভিজিট কেমন হয়েছে আমাদের জানান',
+    choiceSatisfiedLabel: 'সন্তুষ্ট',
+    choiceComplainLabel: 'অভিযোগ',
+    tapHint: 'চালিয়ে যেতে চাপুন',
+    serialBannerLabel: 'সিরিয়াল নম্বর নিন',
+    backChevron: '‹ ফিরে যান',
+    satisfiedTitle: 'শুনে ভালো লাগলো!',
+    satisfiedSub: 'রেটিং দিতে একটি স্টারে চাপুন',
+    complainTitle: 'কী ঘটেছে আমাদের জানান',
+    whatHappenedTitle: 'কী ঘটেছে?',
+    complaintPlaceholder: 'এখানে আপনার অভিযোগ লিখুন...',
+    voiceRecordLabel: 'ভয়েস অভিযোগ রেকর্ড করুন',
+    voiceStopLabel: 'রেকর্ডিং বন্ধ করতে চাপুন',
+    voiceRemoveLabel: 'রেকর্ডিং মুছে ফেলুন',
+    counterTitle: 'আপনি কোন কাউন্টারে গিয়েছিলেন?',
+    counterHint: 'একটি বা একাধিক নির্বাচন করুন',
+    counterLoading: 'কাউন্টার লোড হচ্ছে...',
+    counterEmpty: 'এখনও কোনো কাউন্টার সেট আপ করা হয়নি। অনুগ্রহ করে একজন স্টাফের সাহায্য নিন।',
+    counterError: 'কাউন্টার লোড করা যায়নি। অনুগ্রহ করে আপনার সংযোগ পরীক্ষা করুন।',
+    idTitle: 'আমরা কীভাবে আপনাকে সনাক্ত করব?',
+    idOpd: 'ওপিডি আইডি',
+    idIpd: 'আইপিডি আইডি',
+    idDiag: 'ডায়াগ আইডি',
+    idName: 'রোগীর নাম',
+    idClear: 'মুছুন',
+    enterValueDefault: 'মান লিখুন',
+    enterValueFor: (type) => `${type} লিখুন`,
+    placeholderFullName: 'পূর্ণ নাম',
+    placeholderIdExample: (code) => `যেমন ${code}`,
+    submitLabel: 'জমা দিন',
+    startOverLabel: 'আবার শুরু করুন',
+    serialTitle: 'সিরিয়াল নম্বর নিন',
+    serialSub: 'আপনার প্রয়োজনীয় সেবা নির্বাচন করুন',
+    serialLoading: 'সেবা লোড হচ্ছে...',
+    serialEmpty: 'এখনও কোনো সেবা সেট আপ করা হয়নি। অনুগ্রহ করে একজন স্টাফের সাহায্য নিন।',
+    serialLoadError: 'সেবা লোড করা যায়নি। অনুগ্রহ করে আপনার সংযোগ পরীক্ষা করুন।',
+    getMyNumberLabel: 'আমার নম্বর নিন',
+    ticketEyebrow: 'আপনার নম্বর হলো',
+    ticketHint: 'ডাকার জন্য অপেক্ষা করুন। এই নম্বরটি মনে রাখুন।',
+    errNoText: 'অনুগ্রহ করে কী ঘটেছে তা লিখে অথবা ভয়েসে জানান।',
+    errNoCounter: 'অনুগ্রহ করে আপনি যে কাউন্টারে গিয়েছিলেন তা নির্বাচন করুন।',
+    errNoId: 'অনুগ্রহ করে আমাদের জানান কীভাবে আপনাকে সনাক্ত করা যাবে — নিচে থেকে একটি অপশন বেছে তথ্য দিন।',
+    errNoRating: 'অনুগ্রহ করে আপনার ভিজিট রেট করতে একটি স্টারে চাপুন।',
+    errNoService: 'অনুগ্রহ করে প্রথমে একটি সেবা নির্বাচন করুন।',
+    errVoiceSecure: 'ভয়েস রেকর্ডিংয়ের জন্য একটি নিরাপদ সংযোগ প্রয়োজন। এটি এই ডিভাইসে http://localhost-এ কাজ করে, কিন্তু সাধারণ http://<ip> ল্যান ঠিকানায় কাজ করে না — কিয়স্ক ডিভাইসের জন্য HTTPS সেট আপ করতে স্টাফকে বলুন, অথবা অভিযোগটি টাইপ করুন।',
+    errVoiceUnsupported: 'এই ব্রাউজারে ভয়েস রেকর্ডিং সমর্থিত নয়। আপনি এখনও আপনার অভিযোগ টাইপ করতে পারেন।',
+    errMicDenied: 'মাইক্রোফোন অ্যাক্সেস প্রত্যাখ্যান করা হয়েছে। অনুগ্রহ করে এই পৃষ্ঠার জন্য মাইক্রোফোন অনুমতি দিন (ঠিকানা বার দেখুন) এবং আবার চেষ্টা করুন।',
+    errMicMissing: 'এই ডিভাইসে কোনো মাইক্রোফোন পাওয়া যায়নি। আপনি এখনও আপনার অভিযোগ টাইপ করতে পারেন।',
+    errMicBusy: 'মাইক্রোফোনটি ইতিমধ্যে অন্য একটি অ্যাপ ব্যবহার করছে। এটি বন্ধ করে আবার চেষ্টা করুন।',
+    errVoiceGeneric: (msg) => `ভয়েস রেকর্ডিং শুরু করা যায়নি: ${msg}। আপনি এখনও আপনার অভিযোগ টাইপ করতে পারেন।`,
+    errSubmitFailed: 'জমা দেওয়া ব্যর্থ হয়েছে।',
+    errRatingFailed: 'রেটিং জমা দেওয়া যায়নি।',
+    errTicketFailed: 'এই মুহূর্তে নম্বর দেওয়া যায়নি। আবার চেষ্টা করুন।',
+    doneSatisfiedTitle: 'ধন্যবাদ!',
+    doneSatisfiedSub: 'আপনার ভিজিট ভালো হয়েছে জেনে আমরা আনন্দিত।',
+    doneComplainTitle: 'অভিযোগ গৃহীত হয়েছে',
+    doneComplainSub: 'আমাদের জানানোর জন্য ধন্যবাদ। আমরা বিষয়টি খতিয়ে দেখব।'
+  }
+};
+
+let uiLang = 'bn';
+try {
+  const saved = window.localStorage.getItem('uiLang');
+  if (saved === 'en' || saved === 'bn') uiLang = saved;
+} catch (err) {
+  // localStorage unavailable (private mode etc.) — default stands.
+}
+
+function t(key, ...args) {
+  const entry = (I18N[uiLang] && I18N[uiLang][key] !== undefined) ? I18N[uiLang][key] : I18N.en[key];
+  return typeof entry === 'function' ? entry(...args) : entry;
+}
+
+// English id_type values ("OPD ID" etc.) always go to the server as-is —
+// this only maps one to its translated on-screen label.
+const ID_TYPE_LABEL_KEYS = {
+  'OPD ID': 'idOpd',
+  'IPD ID': 'idIpd',
+  'DIAG ID': 'idDiag',
+  'Patient Name': 'idName'
+};
+function idTypeDisplayLabel(idType) {
+  const key = ID_TYPE_LABEL_KEYS[idType];
+  return key ? t(key) : idType;
+}
+
+// Admin-entered names (counters, services) get an optional Bangla variant
+// set on the admin panel — falls back to the English name whenever the
+// Bangla one is unset or the UI is in English. Never affects what's
+// stored/sent to the server, only what's shown on screen.
+function localizedName(en, bn) {
+  return uiLang === 'bn' && bn ? bn : en;
+}
+
+// Re-applies the "Enter <type>" label + placeholder for whichever id type
+// is currently selected, in the current UI language — shared by the
+// Satisfied and Complain flows' identical identification fields, called
+// right after picking a type and again from refreshDynamicUiText() if the
+// language changes mid-flow while that field is showing.
+function updateIdValueFieldLabels(labelElId, inputEl, idType) {
+  document.getElementById(labelElId).textContent = t('enterValueFor', idTypeDisplayLabel(idType));
+  inputEl.placeholder = idType === 'Patient Name'
+    ? t('placeholderFullName')
+    : t('placeholderIdExample', `${idType.split(' ')[0]}-2026-00123`);
+}
+
+const uiLangButtons = document.querySelectorAll('.ui-lang-btn');
+
+function applyUILang() {
+  document.documentElement.lang = uiLang;
+  document.documentElement.style.setProperty(
+    '--font-display',
+    uiLang === 'bn' ? "'Noto Sans Bengali', 'Manrope', system-ui, sans-serif" : "'Manrope', system-ui, sans-serif"
+  );
+  document.documentElement.style.setProperty(
+    '--font-body',
+    uiLang === 'bn' ? "'Noto Sans Bengali', 'Inter', system-ui, sans-serif" : "'Inter', system-ui, sans-serif"
+  );
+  document.title = t('docTitle');
+
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+
+  uiLangButtons.forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.uiLang === uiLang);
+  });
+
+  // Re-render bits generated dynamically in JS rather than sitting as
+  // static markup, so a mid-flow language switch stays consistent.
+  if (typeof refreshDynamicUiText === 'function') refreshDynamicUiText();
+}
+
+uiLangButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.uiLang === uiLang) return;
+    uiLang = btn.dataset.uiLang;
+    try {
+      window.localStorage.setItem('uiLang', uiLang);
+    } catch (err) {
+      // ignore — nothing to persist to, session just won't remember it.
+    }
+    applyUILang();
+    // The on-screen keyboard has its own independent EN/বাংলা input
+    // toggle, but it's still nice for it to start in the same language
+    // as the UI — only when nothing's been typed into yet (oskTarget is
+    // only set while the keyboard is open) to avoid yanking it out from
+    // under someone mid-typing.
+    if (typeof syncOskLangWithUi === 'function' && !oskTarget) syncOskLangWithUi();
+  });
+});
+
 const screens = {
   choice: document.getElementById('screen-choice'),
   satisfied: document.getElementById('screen-satisfied'),
@@ -44,13 +274,17 @@ document.getElementById('serial-banner-btn').addEventListener('click', () => {
 });
 
 // ==========================================================
-// SATISFIED — star rating, tap to submit immediately
+// SATISFIED — star rating + identification, one page, Submit at the
+// bottom sends both together.
 // ==========================================================
 const starButtons = Array.from(document.querySelectorAll('.star-btn'));
 let submittingRating = false;
+let selectedRating = null;
 
 function resetStars() {
   starButtons.forEach((b) => b.classList.remove('lit', 'hover-lit'));
+  selectedRating = null;
+  clearSatisfiedIdentification();
 }
 
 function litUpTo(n) {
@@ -63,29 +297,90 @@ starButtons.forEach((btn) => {
   const n = Number(btn.dataset.star);
   btn.addEventListener('mouseenter', () => litUpTo(n));
   btn.addEventListener('mouseleave', () => litUpTo(0));
-  btn.addEventListener('click', async () => {
-    if (submittingRating) return;
-    submittingRating = true;
+  btn.addEventListener('click', () => {
     starButtons.forEach((b) => (b.classList.toggle('lit', Number(b.dataset.star) <= n)));
-
-    try {
-      const res = await fetch('/api/submissions/satisfied', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating: n })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not submit rating.');
-      showSatisfiedDone();
-    } catch (err) {
-      alert(err.message);
-      submittingRating = false;
-    }
+    selectedRating = n;
+    satisfiedIdentifyError.hidden = true;
   });
 });
 
 document.getElementById('back-from-satisfied').addEventListener('click', () => {
   showScreen('choice');
+});
+
+// ---- SATISFIED: how should we identify you (required) ----
+const satisfiedIdTypeButtons = document.querySelectorAll('#satisfied-id-type-grid .id-type-btn');
+const satisfiedIdValueWrap = document.getElementById('satisfied-id-value-wrap');
+const satisfiedIdValueInput = document.getElementById('satisfied-id-value-input');
+const satisfiedIdentifyError = document.getElementById('satisfied-identify-error');
+const submitSatisfiedBtn = document.getElementById('submit-satisfied');
+let satisfiedIdType = null;
+let satisfiedIdValue = '';
+
+satisfiedIdTypeButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    if (satisfiedIdType === btn.dataset.idtype) {
+      clearSatisfiedIdentification();
+      return;
+    }
+    satisfiedIdTypeButtons.forEach((b) => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    satisfiedIdType = btn.dataset.idtype;
+    updateIdValueFieldLabels('satisfied-id-value-label', satisfiedIdValueInput, satisfiedIdType);
+    satisfiedIdValueWrap.hidden = false;
+    satisfiedIdValueInput.value = '';
+    satisfiedIdValue = '';
+    satisfiedIdentifyError.hidden = true;
+    satisfiedIdValueInput.focus();
+  });
+});
+
+document.getElementById('satisfied-id-clear').addEventListener('click', clearSatisfiedIdentification);
+
+function clearSatisfiedIdentification() {
+  satisfiedIdTypeButtons.forEach((b) => b.classList.remove('selected'));
+  satisfiedIdValueWrap.hidden = true;
+  satisfiedIdValueInput.value = '';
+  satisfiedIdType = null;
+  satisfiedIdValue = '';
+  satisfiedIdentifyError.hidden = true;
+}
+
+satisfiedIdValueInput.setAttribute('inputmode', 'none');
+satisfiedIdValueInput.addEventListener('focus', () => showKeyboard(satisfiedIdValueInput));
+satisfiedIdValueInput.addEventListener('input', () => {
+  satisfiedIdValue = satisfiedIdValueInput.value;
+});
+
+submitSatisfiedBtn.addEventListener('click', async () => {
+  if (submittingRating) return;
+  if (!selectedRating) {
+    satisfiedIdentifyError.textContent = t('errNoRating');
+    satisfiedIdentifyError.hidden = false;
+    return;
+  }
+  if (!satisfiedIdType || !satisfiedIdValue.trim()) {
+    satisfiedIdentifyError.textContent = t('errNoId');
+    satisfiedIdentifyError.hidden = false;
+    return;
+  }
+  satisfiedIdentifyError.hidden = true;
+  submittingRating = true;
+
+  try {
+    const res = await fetch('/api/submissions/satisfied', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: selectedRating, id_type: satisfiedIdType, id_value: satisfiedIdValue.trim() })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || t('errRatingFailed'));
+    showSatisfiedDone();
+  } catch (err) {
+    satisfiedIdentifyError.textContent = err.message;
+    satisfiedIdentifyError.hidden = false;
+    submittingRating = false;
+  }
 });
 
 function showSatisfiedDone() {
@@ -95,8 +390,8 @@ function showSatisfiedDone() {
   doneIcon.style.background = 'var(--green-soft)';
   doneIcon.style.color = '#12805a';
   doneIcon.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#12805a" stroke-width="3"><path d="M4 12l5 5L20 6"/></svg>';
-  doneTitle.textContent = 'Thank you!';
-  doneSub.textContent = 'We’re glad your visit went well.';
+  doneTitle.textContent = t('doneSatisfiedTitle');
+  doneSub.textContent = t('doneSatisfiedSub');
   showScreen('done');
   launchConfetti(['#12805a', '#f0a93a', '#2f5fd8', '#bfe6d3']);
   submittingRating = false;
@@ -130,7 +425,7 @@ function launchConfetti(colors) {
 // ==========================================================
 const complaintText = document.getElementById('complaint-text');
 const counterGrid = document.getElementById('counter-grid');
-const idTypeButtons = document.querySelectorAll('.id-type-btn');
+const idTypeButtons = document.querySelectorAll('#id-type-grid .id-type-btn');
 const idValueWrap = document.getElementById('id-value-wrap');
 const idValueInput = document.getElementById('id-value-input');
 const complainError = document.getElementById('complain-error');
@@ -145,6 +440,7 @@ const complainState = {
 };
 
 let countersLoaded = false;
+let countersEmptyState = null; // null once loaded fine; 'empty' | 'error' otherwise — lets refreshDynamicUiText() re-translate this message on a language switch
 
 // Tapping Complain: create the "unspecified" complaint row right away (in
 // the background — the patient never waits on this) and go straight to the
@@ -202,34 +498,48 @@ function autoGrowTextarea(el) {
 }
 
 // ---- Which counter(s) ----
+let lastCountersData = [];
+
+// Rebuilds the counter grid from the last fetched data (no re-fetch) —
+// used both after a real load and from refreshDynamicUiText() so a
+// mid-flow language switch re-labels each button (English name vs its
+// admin-set Bangla name) without losing the current selection.
+function renderCounterGrid() {
+  counterGrid.innerHTML = '';
+  lastCountersData.forEach((c) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'counter-btn' + (complainState.selectedCounterIds.has(c.id) ? ' selected' : '');
+    btn.innerHTML = `<span>${escapeHtml(c.counter_number)}</span><span class="counter-name">${escapeHtml(localizedName(c.counter_name, c.counter_name_bn))}</span>`;
+    btn.addEventListener('click', () => {
+      if (complainState.selectedCounterIds.has(c.id)) {
+        complainState.selectedCounterIds.delete(c.id);
+        btn.classList.remove('selected');
+      } else {
+        complainState.selectedCounterIds.add(c.id);
+        btn.classList.add('selected');
+      }
+    });
+    counterGrid.appendChild(btn);
+  });
+}
+
 async function loadCountersIntoScreen() {
   try {
     const res = await fetch('/api/counters');
     const counters = await res.json();
-    counterGrid.innerHTML = '';
     if (!counters.length) {
-      counterGrid.innerHTML = '<div class="counter-empty">No counters have been set up yet. Please ask a staff member for help.</div>';
+      countersEmptyState = 'empty';
+      counterGrid.innerHTML = `<div class="counter-empty">${escapeHtml(t('counterEmpty'))}</div>`;
       return;
     }
-    counters.forEach((c) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'counter-btn';
-      btn.innerHTML = `<span>${escapeHtml(c.counter_number)}</span><span class="counter-name">${escapeHtml(c.counter_name)}</span>`;
-      btn.addEventListener('click', () => {
-        if (complainState.selectedCounterIds.has(c.id)) {
-          complainState.selectedCounterIds.delete(c.id);
-          btn.classList.remove('selected');
-        } else {
-          complainState.selectedCounterIds.add(c.id);
-          btn.classList.add('selected');
-        }
-      });
-      counterGrid.appendChild(btn);
-    });
+    countersEmptyState = null;
+    lastCountersData = counters;
+    renderCounterGrid();
     countersLoaded = true;
   } catch (err) {
-    counterGrid.innerHTML = '<div class="counter-empty">Could not load counters. Please check your connection.</div>';
+    countersEmptyState = 'error';
+    counterGrid.innerHTML = `<div class="counter-empty">${escapeHtml(t('counterError'))}</div>`;
   }
 }
 
@@ -244,9 +554,7 @@ idTypeButtons.forEach((btn) => {
     idTypeButtons.forEach((b) => b.classList.remove('selected'));
     btn.classList.add('selected');
     complainState.id_type = btn.dataset.idtype;
-    const idValueLabel = document.getElementById('id-value-label');
-    idValueLabel.textContent = `Enter ${complainState.id_type}`;
-    idValueInput.placeholder = complainState.id_type === 'Patient Name' ? 'Full name' : `e.g. ${complainState.id_type.split(' ')[0]}-2026-00123`;
+    updateIdValueFieldLabels('id-value-label', idValueInput, complainState.id_type);
     idValueWrap.hidden = false;
     idValueInput.value = '';
     idValueInput.focus();
@@ -287,11 +595,11 @@ voiceBtn.addEventListener('click', async () => {
     // address, the browser hides the whole mediaDevices API and this is
     // why voice recording silently can't start.
     if (!window.isSecureContext) {
-      showComplainError('Voice recording needs a secure connection. It works at http://localhost on this machine, but not over a plain http://<ip> LAN address — ask staff to set up HTTPS for kiosk devices, or type the complaint instead.');
+      showComplainError(t('errVoiceSecure'));
       return;
     }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      showComplainError('Voice recording isn’t supported in this browser. You can still type your complaint.');
+      showComplainError(t('errVoiceUnsupported'));
       return;
     }
     try {
@@ -311,23 +619,23 @@ voiceBtn.addEventListener('click', async () => {
       mediaRecorder.start();
       isRecording = true;
       voiceBtn.classList.add('recording');
-      voiceBtnLabel.textContent = 'Tap to stop recording';
+      voiceBtnLabel.textContent = t('voiceStopLabel');
     } catch (err) {
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        showComplainError('Microphone access was denied. Please allow the microphone permission for this page (check the address bar) and try again.');
+        showComplainError(t('errMicDenied'));
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        showComplainError('No microphone was found on this device. You can still type your complaint.');
+        showComplainError(t('errMicMissing'));
       } else if (err.name === 'NotReadableError') {
-        showComplainError('The microphone is already in use by another app. Close it and try again.');
+        showComplainError(t('errMicBusy'));
       } else {
-        showComplainError(`Could not start voice recording: ${err.message}. You can still type your complaint.`);
+        showComplainError(t('errVoiceGeneric', err.message));
       }
     }
   } else {
     mediaRecorder.stop();
     isRecording = false;
     voiceBtn.classList.remove('recording');
-    voiceBtnLabel.textContent = 'Record voice complaint';
+    voiceBtnLabel.textContent = t('voiceRecordLabel');
   }
 });
 
@@ -349,15 +657,15 @@ submitBtn.addEventListener('click', async () => {
 
   const text = complaintText.value.trim();
   if (!text && !complainState.voiceBlob) {
-    showComplainError('Please tell us what happened, in text or voice.');
+    showComplainError(t('errNoText'));
     return;
   }
   if (complainState.selectedCounterIds.size === 0) {
-    showComplainError('Please select at least one counter you visited.');
+    showComplainError(t('errNoCounter'));
     return;
   }
   if (!complainState.id_type || !complainState.id_value.trim()) {
-    showComplainError('Please tell us how to identify you — pick one option below and enter it.');
+    showComplainError(t('errNoId'));
     return;
   }
 
@@ -382,7 +690,7 @@ submitBtn.addEventListener('click', async () => {
 
     const res = await fetch('/api/submissions/complain', { method: 'POST', body: formData });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Submission failed.');
+    if (!res.ok) throw new Error(data.error || t('errSubmitFailed'));
 
     hideKeyboard();
     showComplainDone();
@@ -401,8 +709,8 @@ function showComplainDone() {
   doneIcon.style.background = 'var(--red-soft)';
   doneIcon.style.color = '#bf3327';
   doneIcon.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#bf3327" stroke-width="3"><path d="M4 12l5 5L20 6"/></svg>';
-  doneTitle.textContent = 'Complaint received';
-  doneSub.textContent = 'Thank you for letting us know. We will look into this.';
+  doneTitle.textContent = t('doneComplainTitle');
+  doneSub.textContent = t('doneComplainSub');
   showScreen('done');
 }
 
@@ -450,6 +758,7 @@ const getSerialBtn = document.getElementById('get-serial-btn');
 
 let selectedServiceId = null;
 let serialServicesLoaded = false;
+let serialEmptyState = null; // null once loaded fine; 'empty' | 'error' otherwise — same pattern as countersEmptyState
 
 function openSerialScreen() {
   selectedServiceId = null;
@@ -464,44 +773,59 @@ document.getElementById('back-from-serial').addEventListener('click', () => {
   showScreen('choice');
 });
 
+let lastServicesData = [];
+
+// Same pattern as renderCounterGrid() — rebuilds from the last fetched
+// data so a mid-flow language switch re-labels services without losing
+// the current selection or re-fetching.
+function renderServiceGrid() {
+  serialServiceGrid.innerHTML = '';
+  lastServicesData.forEach((s) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'id-type-btn' + (selectedServiceId === s.id ? ' selected' : '');
+    btn.textContent = localizedName(s.service_name, s.service_name_bn);
+    btn.addEventListener('click', () => {
+      selectedServiceId = s.id;
+      serialServiceGrid.querySelectorAll('.id-type-btn.selected').forEach((b) => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      getSerialBtn.disabled = false;
+      serialError.hidden = true;
+    });
+    serialServiceGrid.appendChild(btn);
+  });
+}
+
 async function loadServicesIntoSerialScreen() {
   try {
     const res = await fetch('/api/services');
     const services = await res.json();
-    serialServiceGrid.innerHTML = '';
     if (!services.length) {
-      serialServiceGrid.innerHTML = '<div class="counter-empty">No services have been set up yet. Please ask a staff member for help.</div>';
+      serialEmptyState = 'empty';
+      serialServiceGrid.innerHTML = `<div class="counter-empty">${escapeHtml(t('serialEmpty'))}</div>`;
       return;
     }
-    services.forEach((s) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'id-type-btn';
-      btn.textContent = s.service_name;
-      btn.addEventListener('click', () => {
-        selectedServiceId = s.id;
-        serialServiceGrid.querySelectorAll('.id-type-btn.selected').forEach((b) => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        getSerialBtn.disabled = false;
-        serialError.hidden = true;
-      });
-      serialServiceGrid.appendChild(btn);
-    });
+    serialEmptyState = null;
+    lastServicesData = services;
+    renderServiceGrid();
     serialServicesLoaded = true;
   } catch (err) {
-    serialServiceGrid.innerHTML = '<div class="counter-empty">Could not load services. Please check your connection.</div>';
+    serialEmptyState = 'error';
+    serialServiceGrid.innerHTML = `<div class="counter-empty">${escapeHtml(t('serialLoadError'))}</div>`;
   }
 }
 
 function showSerialDone(data) {
   document.getElementById('serial-ticket-number').textContent = data.ticket_number;
-  document.getElementById('serial-ticket-counter').textContent = `${data.counter_name} · ${data.service_name}`;
+  const counterLabel = localizedName(data.counter_name, data.counter_name_bn);
+  const serviceLabel = localizedName(data.service_name, data.service_name_bn);
+  document.getElementById('serial-ticket-counter').textContent = `${counterLabel} · ${serviceLabel}`;
   showScreen('serialDone');
 }
 
 getSerialBtn.addEventListener('click', async () => {
   if (!selectedServiceId) {
-    serialError.textContent = 'Please select a service first.';
+    serialError.textContent = t('errNoService');
     serialError.hidden = false;
     return;
   }
@@ -515,7 +839,7 @@ getSerialBtn.addEventListener('click', async () => {
       body: JSON.stringify({ service_id: selectedServiceId })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Could not get a number right now. Please try again.');
+    if (!res.ok) throw new Error(data.error || t('errTicketFailed'));
     showSerialDone(data);
   } catch (err) {
     serialError.textContent = err.message;
@@ -722,3 +1046,44 @@ function hideKeyboard() {
   oskTarget = null;
   document.querySelectorAll('.screen.keyboard-open').forEach((el) => el.classList.remove('keyboard-open'));
 }
+
+// Matches the on-screen keyboard's own EN/বাংলা input toggle to the UI
+// language — called on load and on a UI language switch (but never while
+// someone has the keyboard open and might be mid-word, see the toggle's
+// click handler above).
+function syncOskLangWithUi() {
+  const targetBtn = Array.from(oskLangButtons).find((b) => b.dataset.lang === uiLang);
+  if (!targetBtn) return;
+  oskLang = uiLang;
+  oskLayer = 'letters';
+  oskShift = false;
+  oskLangButtons.forEach((b) => b.classList.toggle('active', b === targetBtn));
+  osk.classList.toggle('lang-bn', oskLang === 'bn');
+  renderKeyboard();
+}
+
+// Re-renders whatever UI text was generated dynamically in JS (rather than
+// sitting as static [data-i18n] markup) so a mid-flow language switch
+// stays fully consistent — called from applyUILang().
+function refreshDynamicUiText() {
+  if (satisfiedIdType && !satisfiedIdValueWrap.hidden) {
+    updateIdValueFieldLabels('satisfied-id-value-label', satisfiedIdValueInput, satisfiedIdType);
+  }
+  if (complainState.id_type && !idValueWrap.hidden) {
+    updateIdValueFieldLabels('id-value-label', idValueInput, complainState.id_type);
+  }
+  voiceBtnLabel.textContent = isRecording ? t('voiceStopLabel') : t('voiceRecordLabel');
+  if (countersLoaded) renderCounterGrid();
+  if (serialServicesLoaded) renderServiceGrid();
+
+  if (!countersLoaded && countersEmptyState) {
+    counterGrid.innerHTML = `<div class="counter-empty">${escapeHtml(t(countersEmptyState === 'empty' ? 'counterEmpty' : 'counterError'))}</div>`;
+  }
+  if (!serialServicesLoaded && serialEmptyState) {
+    serialServiceGrid.innerHTML = `<div class="counter-empty">${escapeHtml(t(serialEmptyState === 'empty' ? 'serialEmpty' : 'serialLoadError'))}</div>`;
+  }
+}
+
+// ---------------- Initial UI language state ----------------
+applyUILang();
+syncOskLangWithUi();

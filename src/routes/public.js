@@ -14,7 +14,7 @@ const VALID_ID_TYPES = ['OPD ID', 'IPD ID', 'DIAG ID', 'Patient Name'];
 router.get('/counters', async (req, res) => {
   try {
     const { rows } = await db.query(
-      'SELECT id, counter_number, counter_name FROM counters WHERE is_active = TRUE ORDER BY counter_number'
+      'SELECT id, counter_number, counter_name, counter_name_bn FROM counters WHERE is_active = TRUE ORDER BY counter_number'
     );
     res.json(rows);
   } catch (err) {
@@ -23,8 +23,8 @@ router.get('/counters', async (req, res) => {
   }
 });
 
-// POST /api/submissions/satisfied — tapping a star submits immediately.
-// No counter, no identification, just the 1-5 rating.
+// POST /api/submissions/satisfied — tap a star, then identify yourself
+// (required), then submit. No counter — just the rating plus who it's from.
 router.post('/submissions/satisfied', async (req, res) => {
   try {
     const rating = Number(req.body.rating);
@@ -32,9 +32,17 @@ router.post('/submissions/satisfied', async (req, res) => {
       return res.status(400).json({ error: 'Rating must be a whole number from 1 to 5.' });
     }
 
+    const { id_type, id_value } = req.body;
+    if (!id_type || !id_value?.trim()) {
+      return res.status(400).json({ error: 'Please tell us how to identify you.' });
+    }
+    if (!VALID_ID_TYPES.includes(id_type)) {
+      return res.status(400).json({ error: 'Invalid identification type.' });
+    }
+
     const { rows } = await db.query(
-      `INSERT INTO submissions (submission_type, rating) VALUES ('satisfied', $1) RETURNING id`,
-      [rating]
+      `INSERT INTO submissions (submission_type, rating, id_type, id_value) VALUES ('satisfied', $1, $2, $3) RETURNING id`,
+      [rating, id_type, id_value.trim()]
     );
 
     res.status(201).json({ success: true, submission_id: rows[0].id });
@@ -189,7 +197,7 @@ router.post('/submissions/complain', upload.single('voice'), async (req, res) =>
 router.get('/services', async (req, res) => {
   try {
     const { rows } = await db.query(
-      'SELECT id, service_name FROM services WHERE is_active = TRUE ORDER BY service_name'
+      'SELECT id, service_name, service_name_bn FROM services WHERE is_active = TRUE ORDER BY service_name'
     );
     res.json(rows);
   } catch (err) {
@@ -227,7 +235,7 @@ router.post('/queue/ticket', async (req, res) => {
     }
 
     const { rows: serviceRows } = await client.query(
-      'SELECT id, service_name FROM services WHERE id = $1 AND is_active = TRUE',
+      'SELECT id, service_name, service_name_bn FROM services WHERE id = $1 AND is_active = TRUE',
       [serviceId]
     );
     if (serviceRows.length === 0) {
@@ -238,7 +246,7 @@ router.post('/queue/ticket', async (req, res) => {
     await client.query('BEGIN');
 
     const { rows: eligible } = await client.query(
-      `SELECT c.id, c.counter_number, c.counter_name,
+      `SELECT c.id, c.counter_number, c.counter_name, c.counter_name_bn,
               COALESCE(wc.waiting_count, 0) AS waiting_count
        FROM counters c
        JOIN counter_services cs ON cs.counter_id = c.id
@@ -300,8 +308,10 @@ router.post('/queue/ticket', async (req, res) => {
       counter_id: counter.id,
       counter_number: counter.counter_number,
       counter_name: counter.counter_name,
+      counter_name_bn: counter.counter_name_bn,
       service_id: service.id,
-      service_name: service.service_name
+      service_name: service.service_name,
+      service_name_bn: service.service_name_bn
     });
   } catch (err) {
     await client.query('ROLLBACK');

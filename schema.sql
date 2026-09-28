@@ -35,7 +35,10 @@ CREATE TABLE counters (
   counter_number VARCHAR(20)  NOT NULL UNIQUE,   -- e.g. "01", "OPD-1"
   counter_name   VARCHAR(100) NOT NULL,          -- e.g. "OPD Reception"
   is_active      BOOLEAN DEFAULT TRUE,
-  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  -- Optional Bangla display name for the kiosk's language toggle — NULL
+  -- falls back to counter_name. Admin-set, same as the English name.
+  counter_name_bn VARCHAR(100)
 );
 
 -- ----------------------------------------------------------
@@ -239,7 +242,10 @@ CREATE TABLE services (
   id            SERIAL PRIMARY KEY,
   service_name  VARCHAR(100) NOT NULL UNIQUE,
   is_active     BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  -- Optional Bangla display name for the kiosk's language toggle — NULL
+  -- falls back to service_name. Admin-set, same as the English name.
+  service_name_bn VARCHAR(100)
 );
 
 INSERT INTO services (service_name) VALUES

@@ -102,7 +102,7 @@ router.put('/:id/now', async (req, res) => {
 router.post('/', async (req, res) => {
   const client = await db.connect();
   try {
-    const { counter_number, counter_name, assigned_employee_id, service_ids } = req.body;
+    const { counter_number, counter_name, counter_name_bn, assigned_employee_id, service_ids } = req.body;
     if (!counter_number || !counter_name) {
       return res.status(400).json({ error: 'Counter number and name are required.' });
     }
@@ -112,8 +112,8 @@ router.post('/', async (req, res) => {
 
     await client.query('BEGIN');
     const { rows } = await client.query(
-      'INSERT INTO counters (counter_number, counter_name, assigned_employee_id) VALUES ($1, $2, $3) RETURNING id',
-      [counter_number.trim(), counter_name.trim(), assigned_employee_id || null]
+      'INSERT INTO counters (counter_number, counter_name, counter_name_bn, assigned_employee_id) VALUES ($1, $2, $3, $4) RETURNING id',
+      [counter_number.trim(), counter_name.trim(), counter_name_bn?.trim() || null, assigned_employee_id || null]
     );
     const counterId = rows[0].id;
     if (ids.length) {
@@ -153,11 +153,12 @@ router.post('/', async (req, res) => {
 // service_ids is only touched when the request body actually includes
 // that key, same reasoning as assigned_employee_id above — so toggling
 // Active/Inactive from the list page can never accidentally wipe out a
-// counter's service tags.
+// counter's service tags. counter_name_bn follows the same rule, so
+// saving it from its own inline editor never touches anything else.
 router.put('/:id', async (req, res) => {
   const client = await db.connect();
   try {
-    const { counter_number, counter_name, is_active, assigned_employee_id, service_ids } = req.body;
+    const { counter_number, counter_name, counter_name_bn, is_active, assigned_employee_id, service_ids } = req.body;
     await client.query('BEGIN');
     if (Object.prototype.hasOwnProperty.call(req.body, 'assigned_employee_id')) {
       await client.query(
@@ -168,6 +169,12 @@ router.put('/:id', async (req, res) => {
       await client.query(
         'UPDATE counters SET counter_number = $1, counter_name = $2, is_active = $3 WHERE id = $4',
         [counter_number, counter_name, is_active, req.params.id]
+      );
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'counter_name_bn')) {
+      await client.query(
+        'UPDATE counters SET counter_name_bn = $1 WHERE id = $2',
+        [counter_name_bn?.trim() || null, req.params.id]
       );
     }
     if (Object.prototype.hasOwnProperty.call(req.body, 'service_ids')) {

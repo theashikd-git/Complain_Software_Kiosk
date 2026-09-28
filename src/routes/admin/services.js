@@ -17,15 +17,15 @@ router.get('/', async (req, res) => {
 // POST /api/admin/services — create a service
 router.post('/', async (req, res) => {
   try {
-    const { service_name } = req.body;
+    const { service_name, service_name_bn } = req.body;
     if (!service_name || !service_name.trim()) {
       return res.status(400).json({ error: 'Service name is required.' });
     }
     const { rows } = await db.query(
-      'INSERT INTO services (service_name) VALUES ($1) RETURNING id',
-      [service_name.trim()]
+      'INSERT INTO services (service_name, service_name_bn) VALUES ($1, $2) RETURNING id',
+      [service_name.trim(), service_name_bn?.trim() || null]
     );
-    res.status(201).json({ id: rows[0].id, service_name: service_name.trim(), is_active: true });
+    res.status(201).json({ id: rows[0].id, service_name: service_name.trim(), service_name_bn: service_name_bn?.trim() || null, is_active: true });
   } catch (err) {
     if (err.code === '23505') { // unique_violation
       return res.status(409).json({ error: 'A service with this name already exists.' });
@@ -38,13 +38,13 @@ router.post('/', async (req, res) => {
 // PUT /api/admin/services/:id — edit name and/or active status
 router.put('/:id', async (req, res) => {
   try {
-    const { service_name, is_active } = req.body;
+    const { service_name, service_name_bn, is_active } = req.body;
     if (!service_name || !service_name.trim()) {
       return res.status(400).json({ error: 'Service name is required.' });
     }
     await db.query(
-      'UPDATE services SET service_name = $1, is_active = $2 WHERE id = $3',
-      [service_name.trim(), is_active, req.params.id]
+      'UPDATE services SET service_name = $1, service_name_bn = $2, is_active = $3 WHERE id = $4',
+      [service_name.trim(), service_name_bn?.trim() || null, is_active, req.params.id]
     );
     res.json({ success: true });
   } catch (err) {

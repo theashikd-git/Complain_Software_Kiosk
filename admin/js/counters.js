@@ -87,18 +87,18 @@
   }
 
   async function loadCounters() {
-    tbody.innerHTML = '<tr><td colspan="6" class="muted">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="muted">Loading…</td></tr>';
     try {
       const counters = await api('/api/admin/counters');
       populateSuggestions(counters);
       if (!counters.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="muted">No counters yet. Add one above.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="muted">No counters yet. Add one above.</td></tr>';
         return;
       }
       tbody.innerHTML = counters.map(rowHtml).join('');
       attachRowHandlers();
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="6" class="muted">Could not load counters: ${escapeHtml(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="muted">Could not load counters: ${escapeHtml(err.message)}</td></tr>`;
     }
   }
 
@@ -139,11 +139,33 @@
     `;
   }
 
+  // Bangla name shown as read-only text by default; "Edit" swaps in a
+  // text input, saved via a PUT that only ever includes counter_name_bn
+  // (see the backend route's comment) so this can never accidentally
+  // touch the number/name/status/services also on this row.
+  function bnNameCellHtml(c) {
+    const display = c.counter_name_bn
+      ? escapeHtml(c.counter_name_bn)
+      : '<span class="muted" style="font-size: 12.5px;">None</span>';
+    return `
+      <div class="bn-name-display">
+        ${display}
+        <button type="button" class="btn btn-outline btn-sm edit-bn-name-btn" style="margin-left: 6px;">Edit</button>
+      </div>
+      <div class="bn-name-edit hidden">
+        <input type="text" class="bn-name-input" value="${escapeHtml(c.counter_name_bn || '')}" placeholder="e.g. ওপিডি রিসেপশন" style="width: 150px; padding: 6px 8px; border-radius: 8px; border: 1.5px solid var(--border); font-size: 13px;">
+        <button type="button" class="btn btn-primary btn-sm save-bn-name-btn" style="margin-top: 6px;">Save</button>
+        <button type="button" class="btn btn-outline btn-sm cancel-bn-name-btn" style="margin-top: 6px;">Cancel</button>
+      </div>
+    `;
+  }
+
   function rowHtml(c) {
     return `
       <tr data-id="${c.id}">
         <td>${escapeHtml(c.counter_number)}</td>
         <td>${escapeHtml(c.counter_name)}</td>
+        <td class="bn-name-cell">${bnNameCellHtml(c)}</td>
         <td class="services-cell">${servicesCellHtml(c)}</td>
         <td>
           <select class="assigned-employee-select">${employeeOptionsHtml(c.current_employee_id)}</select>
@@ -217,6 +239,37 @@
         }
       });
 
+      const bnNameCell = tr.querySelector('.bn-name-cell');
+      const bnNameDisplay = bnNameCell.querySelector('.bn-name-display');
+      const bnNameEdit = bnNameCell.querySelector('.bn-name-edit');
+
+      bnNameCell.querySelector('.edit-bn-name-btn').addEventListener('click', () => {
+        bnNameDisplay.classList.add('hidden');
+        bnNameEdit.classList.remove('hidden');
+        bnNameEdit.querySelector('.bn-name-input').focus();
+      });
+      bnNameCell.querySelector('.cancel-bn-name-btn').addEventListener('click', () => {
+        bnNameEdit.classList.add('hidden');
+        bnNameDisplay.classList.remove('hidden');
+      });
+      bnNameCell.querySelector('.save-bn-name-btn').addEventListener('click', async () => {
+        const counter_name_bn = bnNameEdit.querySelector('.bn-name-input').value.trim();
+        try {
+          await api(`/api/admin/counters/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              counter_number: counterNumber(),
+              counter_name: counterName(),
+              counter_name_bn,
+              is_active: tr.querySelector('.status-active') !== null
+            })
+          });
+          loadCounters();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
       const servicesCell = tr.querySelector('.services-cell');
       const servicesDisplay = servicesCell.querySelector('.services-display');
       const servicesEdit = servicesCell.querySelector('.services-edit');
@@ -254,12 +307,13 @@
     formError.classList.add('hidden');
     const counter_number = document.getElementById('counter_number').value.trim();
     const counter_name = document.getElementById('counter_name').value.trim();
+    const counter_name_bn = document.getElementById('counter_name_bn').value.trim();
     const assigned_employee_id = assignedEmployeeSelect.value || null;
     const service_ids = checkedServiceIds(serviceChecklist);
     try {
       await api('/api/admin/counters', {
         method: 'POST',
-        body: JSON.stringify({ counter_number, counter_name, assigned_employee_id, service_ids })
+        body: JSON.stringify({ counter_number, counter_name, counter_name_bn, assigned_employee_id, service_ids })
       });
       form.reset();
       assignedEmployeeSelect.value = '';
