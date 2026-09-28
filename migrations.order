@@ -1,0 +1,14 @@
+# Migrations run in this order. Add every NEW migration at the bottom.
+migration_shifts.sql
+migration_counter_employee.sql
+migration_complaint_employee_snapshot.sql
+migration_roster_import.sql
+migration_multi_shift.sql
+migration_assigned_until.sql
+migration_queue_tickets.sql
+migration_services_queue.sql
+migration_queue_tickets_unique.sql
+migration_served_by.sql
+migration_shared_ticket_pool.sql
+migration_daily_ticket_sequence.sql
+migration_staff_console.sql

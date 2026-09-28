@@ -111,10 +111,14 @@ echo "=============================================="
 APPLIED="$APP_DIR/.applied_migrations"
 touch "$APPLIED"; chown "$APP_USER:$APP_USER" "$APPLIED"
 
-# Order = the order each migration file was first added to the repo.
+# Order: the list in migrations.order (one file name per line) comes first;
+# any migration_*.sql not listed there runs after, in the order it was
+# added to git.
 mapfile -t MIGRATIONS < <(
-  as_app "git log --diff-filter=A --reverse --format= --name-only -- 'migration_*.sql'" \
-    | awk 'NF && !seen[$0]++'
+  {
+    [ -f "$APP_DIR/migrations.order" ] && grep -vE '^[[:space:]]*(#|$)' "$APP_DIR/migrations.order" | tr -d '\r'
+    as_app "git log --diff-filter=A --reverse --format= --name-only -- 'migration_*.sql'"
+  } | awk 'NF && !seen[$0]++'
 )
 
 RAN=0
