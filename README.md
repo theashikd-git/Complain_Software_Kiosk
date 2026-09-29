@@ -215,36 +215,20 @@ systemctl start complain-software
 
 ## 🖥️ Kiosk touchscreens
 
-Browsers only allow microphone access (for voice complaints) on `https://` or `localhost`. The `kiosk/` folder contains Windows files that fix this for your server's LAN address.
+Browsers only allow microphone access (for voice complaints) on `https://` or `localhost`. The server serves itself over HTTPS with a self-signed certificate once one is generated — see [`certs/README.md`](certs/README.md) for how to generate it for your server's IP. No Edge/Chrome registry policy is needed anymore.
 
 | File | Purpose |
 |---|---|
-| `trust-server-origin.reg` / `-chrome.reg` | Lets Edge / Chrome use the microphone on your server's address |
 | `start-kiosk.bat` / `-chrome.bat` | Opens the kiosk fullscreen. Put a shortcut in the Startup folder |
 
 **Per kiosk device:**
 
-1. Edit the `.reg` and `.bat` files and replace the placeholder IP with your server's IP
-2. Double-click the `.reg` file and accept the admin prompt
-3. Fully close the browser (check Task Manager for leftover `msedge.exe` / `chrome.exe`)
-4. Open `edge://policy` or `chrome://policy`, click **Reload policies**, and confirm `OverrideSecurityRestrictionsOnInsecureOrigin` shows your server
+1. Generate the server's certificate once (see `certs/README.md`) if you haven't already
+2. Edit your copy of the `.bat` file and set `KIOSK_URL` to `https://<your-server-ip>:3000/`
+3. Run the `.bat` — it already passes `--ignore-certificate-errors`, so the self-signed cert's warning never shows
 
 > [!TIP]
-> Give the server a **static IP** (DHCP reservation on the router). If it changes, every kiosk must be reconfigured.
-
-<details>
-<summary><b>🔍 Registry values (for manual setup)</b></summary>
-
-<br>
-
-| Browser | Registry path |
-|---|---|
-| Edge | `HKLM\SOFTWARE\Policies\Microsoft\Edge\OverrideSecurityRestrictionsOnInsecureOrigin` |
-| Chrome | `HKLM\SOFTWARE\Policies\Google\Chrome\OverrideSecurityRestrictionsOnInsecureOrigin` |
-
-Value: a **String** named `1`, with data `http://<your-server-ip>:3000`
-
-</details>
+> Give the server a **static IP** (DHCP reservation on the router). If it changes, regenerate the certificate for the new IP (see `certs/README.md`) and every kiosk's `.bat` must be reconfigured.
 
 ---
 

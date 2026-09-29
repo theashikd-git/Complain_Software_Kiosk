@@ -7,3 +7,9 @@ yarn-error.log*
 !.env.example
 .DS_Store
 *.log
+
+# Self-signed TLS cert/key (see certs/README.md) — server-specific, and a
+# private key has no business in version control.
+certs/*.key
+certs/*.cert
+certs/*.pem
