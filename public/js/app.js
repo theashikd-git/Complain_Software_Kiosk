@@ -958,10 +958,10 @@ function oskBackspace(el) {
 }
 
 // Tapping a key would normally blur the focused field first (losing the
-// cursor position) — block that on mousedown/touchstart so focus stays on
-// the field, and act only on the click that follows.
+// cursor position) — block that on mousedown so focus stays on the field,
+// and act only on the click that follows. Don't preventDefault touchstart:
+// that suppresses the synthesized click, so touch taps would do nothing.
 oskKeysEl.addEventListener('mousedown', (e) => e.preventDefault());
-oskKeysEl.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
 
 oskKeysEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.osk-key');
