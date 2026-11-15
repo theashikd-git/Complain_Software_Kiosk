@@ -54,15 +54,22 @@
           <label for="import-year">Year</label>
           <input type="number" id="import-year" min="2000" max="2100">
         </div>
-        <button type="submit" class="btn btn-primary">Import</button>
+        <button type="submit" class="btn btn-primary">Preview Import</button>
       </form>
       <div class="field hidden" id="import-sheet-picker" style="margin-top: 10px;">
         <label for="import-sheet-select">This file has more than one sheet — pick the one with this roster's data</label>
         <select id="import-sheet-select"></select>
-        <button type="button" class="btn btn-primary btn-sm" id="import-sheet-confirm" style="margin-top: 8px;">Import Selected Sheet</button>
+        <button type="button" class="btn btn-primary btn-sm" id="import-sheet-confirm" style="margin-top: 8px;">Preview Selected Sheet</button>
+      </div>
+      <div class="hidden" id="import-preview" style="margin-top: 14px; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: 12px;">
+        <div id="import-preview-body" style="font-size: 13.5px; line-height: 1.6;"></div>
+        <div style="margin-top: 12px; display: flex; gap: 8px;">
+          <button type="button" class="btn btn-primary btn-sm" id="import-confirm-btn">Confirm Import</button>
+          <button type="button" class="btn btn-outline btn-sm" id="import-cancel-btn">Cancel</button>
+        </div>
       </div>
       <p class="muted" style="margin: 10px 0 0; font-size: 12.5px;">
-        Creates a roster entry for every employee/day cell (shift codes must be set up on the Shifts page first). No counter is set on import — assign counters afterwards below, under "All Entries."
+        Creates a roster entry for every employee/day cell (shift codes must be set up on the Shifts page first). If the sheet has a counter short code under each name (EMG, GF C, RD...), the counter is assigned too — set each counter's short code on the Counters page first. Importing again replaces counters with the file's, except on dates already past. When several people share a code in one shift, they are numbered top to bottom (RD1, RD2...) and matched to counters with those short codes.
       </p>
     </div>
 

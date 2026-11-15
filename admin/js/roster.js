@@ -406,9 +406,56 @@
 
   // ---- Excel import ----
 
-  async function runImport(sheetName) {
+  const importPreview = document.getElementById('import-preview');
+  const importPreviewBody = document.getElementById('import-preview-body');
+  let pendingSheetName = null;
+
+  // Lines shared by the preview and the final result: who/what didn't match.
+  function importProblemsHtml(data) {
+    let html = '';
+    if (data.unmatchedEmployees && data.unmatchedEmployees.length) {
+      html += `<div>⚠ No matching employee (skipped): ${data.unmatchedEmployees.map(escapeHtml).join(', ')}.</div>`;
+    }
+    if (data.unknownPlaceCodes && data.unknownPlaceCodes.length) {
+      html += `<div>⚠ No counter has this short code, so those entries get no counter: ${data.unknownPlaceCodes
+        .map((p) => `${escapeHtml(p.code)} (${p.count})`)
+        .join(', ')}. Set it on the Counters page, then import again.</div>`;
+    }
+    (data.missingNumberedCounters || []).forEach((m) => {
+      html += `<div>⚠ No counter with short code <strong>${escapeHtml(m.counter)}</strong>, so ${m.count} entr${m.count === 1 ? 'y gets' : 'ies get'} no counter — assign by hand below: ${m.examples.map(escapeHtml).join('; ')}${m.count > m.examples.length ? '; …' : ''}.</div>`;
+    });
+    if (data.skippedInvalidDays && data.skippedInvalidDays.length) {
+      html += `<div>⚠ ${data.skippedInvalidDays.length} day(s) skipped (outside the chosen month).</div>`;
+    }
+    return html;
+  }
+
+  function showImportPreview(data) {
+    let html = `<strong>Preview of "${escapeHtml(data.sheetName)}" — nothing is saved yet.</strong><br>`;
+    html += `${data.totalEntries} entries in the file (${data.offDays} off days). `;
+    html += `<strong>${data.newEntries}</strong> new, `;
+    html += `<strong>${data.countersFilled}</strong> existing entries get a counter for the first time, `;
+    html += `<strong>${data.countersOverwritten}</strong> existing entries get a different counter, `;
+    html += `${data.unchanged} unchanged`;
+    if (data.protectedPast) html += `, ${data.protectedPast} past entries left as they are`;
+    html += '.';
+    if (data.withoutCounter) {
+      html += `<div>${data.withoutCounter} working entries will have no counter (none named in the file).</div>`;
+    }
+    if (data.overwriteSamples && data.overwriteSamples.length) {
+      html += `<div style="margin-top: 6px;">Counter changes${data.countersOverwritten > data.overwriteSamples.length ? ' (first ' + data.overwriteSamples.length + ')' : ''}:<ul style="margin: 4px 0 0 18px;">${data.overwriteSamples
+        .map((s) => `<li>${escapeHtml(s)}</li>`)
+        .join('')}</ul></div>`;
+    }
+    html += importProblemsHtml(data);
+    importPreviewBody.innerHTML = html;
+    importPreview.classList.remove('hidden');
+  }
+
+  async function runImport(sheetName, mode = 'preview') {
     importError.classList.add('hidden');
     importResult.style.display = 'none';
+    if (mode === 'preview') importPreview.classList.add('hidden');
 
     if (!currentImportFile) {
       importError.textContent = 'Choose an Excel file first.';
@@ -420,6 +467,7 @@
     fd.append('file', currentImportFile);
     fd.append('month', importMonthSelect.value);
     fd.append('year', importYearInput.value);
+    fd.append('mode', mode);
     if (sheetName) fd.append('sheetName', sheetName);
 
     try {
@@ -433,15 +481,26 @@
 
       sheetPicker.classList.add('hidden');
 
-      let msg = `Imported ${data.imported} shift${data.imported === 1 ? '' : 's'} from "${data.sheetName}".`;
+      if (data.preview) {
+        pendingSheetName = data.sheetName;
+        showImportPreview(data);
+        return;
+      }
+
+      importPreview.classList.add('hidden');
+      const saved = data.newEntries + data.countersFilled + data.countersOverwritten;
+      let msg = `Imported "${data.sheetName}": ${data.newEntries} new, ${data.countersFilled} counters filled, ${data.countersOverwritten} counters changed (${saved} saved, ${data.unchanged} already up to date).`;
       if (data.unmatchedEmployees && data.unmatchedEmployees.length) {
         msg += ` No matching employee for: ${data.unmatchedEmployees.join(', ')}.`;
       }
+      if (data.unknownPlaceCodes && data.unknownPlaceCodes.length) {
+        msg += ` No counter for short code: ${data.unknownPlaceCodes.map((p) => `${p.code} (${p.count})`).join(', ')}.`;
+      }
+      if (data.missingNumberedCounters && data.missingNumberedCounters.length) {
+        msg += ` No counter yet for: ${data.missingNumberedCounters.map((m) => `${m.counter} (${m.count})`).join(', ')} — assign those by hand.`;
+      }
       if (data.skippedInvalidDays && data.skippedInvalidDays.length) {
         msg += ` ${data.skippedInvalidDays.length} day(s) skipped (outside the chosen month).`;
-      }
-      if (data.warnings && data.warnings.length) {
-        msg += ` ${data.warnings.length} unrecognized code warning(s).`;
       }
       if (data.multipleShiftsWarnings && data.multipleShiftsWarnings.length) {
         // An employee can legitimately work more than one shift a day now
@@ -469,6 +528,8 @@
   });
 
   sheetConfirmBtn.addEventListener('click', () => runImport(sheetSelect.value));
+  document.getElementById('import-confirm-btn').addEventListener('click', () => runImport(pendingSheetName, 'import'));
+  document.getElementById('import-cancel-btn').addEventListener('click', () => importPreview.classList.add('hidden'));
 
   await loadOptions();
   setView('daily');
