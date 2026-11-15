@@ -11,7 +11,6 @@
   const tbody = document.getElementById('counters-tbody');
   const form = document.getElementById('counter-form');
   const formError = document.getElementById('form-error');
-  const assignedEmployeeSelect = document.getElementById('assigned_employee_id');
   const counterNumberSuggestions = document.getElementById('counter-number-suggestions');
   const counterNameSuggestions = document.getElementById('counter-name-suggestions');
   const serviceChecklist = document.getElementById('service-checklist');
@@ -83,22 +82,21 @@
     } catch (err) {
       employees = [];
     }
-    assignedEmployeeSelect.innerHTML = employeeOptionsHtml('');
   }
 
   async function loadCounters() {
-    tbody.innerHTML = '<tr><td colspan="7" class="muted">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="muted">Loading…</td></tr>';
     try {
       const counters = await api('/api/admin/counters');
       populateSuggestions(counters);
       if (!counters.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="muted">No counters yet. Add one above.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="muted">No counters yet. Add one above.</td></tr>';
         return;
       }
       tbody.innerHTML = counters.map(rowHtml).join('');
       attachRowHandlers();
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="7" class="muted">Could not load counters: ${escapeHtml(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="muted">Could not load counters: ${escapeHtml(err.message)}</td></tr>`;
     }
   }
 
@@ -160,12 +158,32 @@
     `;
   }
 
+  // Short code works the same way as the Bangla name: read-only text,
+  // "Edit" swaps in an input, saved via a PUT that only includes short_code.
+  function shortCodeCellHtml(c) {
+    const display = c.short_code
+      ? `<span class="badge">${escapeHtml(c.short_code)}</span>`
+      : '<span class="muted" style="font-size: 12.5px;">None</span>';
+    return `
+      <div class="short-code-display">
+        ${display}
+        <button type="button" class="btn btn-outline btn-sm edit-short-code-btn" style="margin-left: 6px;">Edit</button>
+      </div>
+      <div class="short-code-edit hidden">
+        <input type="text" class="short-code-input" value="${escapeHtml(c.short_code || '')}" placeholder="e.g. GF C" maxlength="20" style="width: 90px; padding: 6px 8px; border-radius: 8px; border: 1.5px solid var(--border); font-size: 13px;">
+        <button type="button" class="btn btn-primary btn-sm save-short-code-btn" style="margin-top: 6px;">Save</button>
+        <button type="button" class="btn btn-outline btn-sm cancel-short-code-btn" style="margin-top: 6px;">Cancel</button>
+      </div>
+    `;
+  }
+
   function rowHtml(c) {
     return `
       <tr data-id="${c.id}">
         <td>${escapeHtml(c.counter_number)}</td>
         <td>${escapeHtml(c.counter_name)}</td>
         <td class="bn-name-cell">${bnNameCellHtml(c)}</td>
+        <td class="short-code-cell">${shortCodeCellHtml(c)}</td>
         <td class="services-cell">${servicesCellHtml(c)}</td>
         <td>
           <select class="assigned-employee-select">${employeeOptionsHtml(c.current_employee_id)}</select>
@@ -270,6 +288,37 @@
         }
       });
 
+      const shortCodeCell = tr.querySelector('.short-code-cell');
+      const shortCodeDisplay = shortCodeCell.querySelector('.short-code-display');
+      const shortCodeEdit = shortCodeCell.querySelector('.short-code-edit');
+
+      shortCodeCell.querySelector('.edit-short-code-btn').addEventListener('click', () => {
+        shortCodeDisplay.classList.add('hidden');
+        shortCodeEdit.classList.remove('hidden');
+        shortCodeEdit.querySelector('.short-code-input').focus();
+      });
+      shortCodeCell.querySelector('.cancel-short-code-btn').addEventListener('click', () => {
+        shortCodeEdit.classList.add('hidden');
+        shortCodeDisplay.classList.remove('hidden');
+      });
+      shortCodeCell.querySelector('.save-short-code-btn').addEventListener('click', async () => {
+        const short_code = shortCodeEdit.querySelector('.short-code-input').value.trim();
+        try {
+          await api(`/api/admin/counters/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              counter_number: counterNumber(),
+              counter_name: counterName(),
+              short_code,
+              is_active: tr.querySelector('.status-active') !== null
+            })
+          });
+          loadCounters();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
       const servicesCell = tr.querySelector('.services-cell');
       const servicesDisplay = servicesCell.querySelector('.services-display');
       const servicesEdit = servicesCell.querySelector('.services-edit');
@@ -308,15 +357,14 @@
     const counter_number = document.getElementById('counter_number').value.trim();
     const counter_name = document.getElementById('counter_name').value.trim();
     const counter_name_bn = document.getElementById('counter_name_bn').value.trim();
-    const assigned_employee_id = assignedEmployeeSelect.value || null;
+    const short_code = document.getElementById('short_code').value.trim();
     const service_ids = checkedServiceIds(serviceChecklist);
     try {
       await api('/api/admin/counters', {
         method: 'POST',
-        body: JSON.stringify({ counter_number, counter_name, counter_name_bn, assigned_employee_id, service_ids })
+        body: JSON.stringify({ counter_number, counter_name, counter_name_bn, short_code, service_ids })
       });
       form.reset();
-      assignedEmployeeSelect.value = '';
       serviceChecklist.innerHTML = serviceChecklistHtml();
       loadCounters();
     } catch (err) {

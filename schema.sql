@@ -38,8 +38,15 @@ CREATE TABLE counters (
   created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   -- Optional Bangla display name for the kiosk's language toggle — NULL
   -- falls back to counter_name. Admin-set, same as the English name.
-  counter_name_bn VARCHAR(100)
+  counter_name_bn VARCHAR(100),
+  -- Short code (EMG, GF C, RD...) matched against the counter named under
+  -- each employee in an imported Excel duty roster. Compared ignoring case
+  -- and spaces, see the unique index right below.
+  short_code      VARCHAR(20)
 );
+CREATE UNIQUE INDEX uniq_counters_short_code
+  ON counters (UPPER(REPLACE(short_code, ' ', '')))
+  WHERE short_code IS NOT NULL;
 
 -- ----------------------------------------------------------
 -- Employees (created by admin, assigned to counters)
@@ -90,9 +97,11 @@ CREATE TABLE shifts (
 -- excluded from live-assignment matching via is_off.
 INSERT INTO shifts (shift_name, start_time, end_time, shift_code, is_off) VALUES
   ('General',  '10:00', '18:00', 'G', FALSE),
-  ('Morning',  '08:00', '15:00', 'M', FALSE),
-  ('Evening',  '14:00', '22:00', 'E', FALSE),
-  ('Night',    '22:00', '09:00', 'N', FALSE),
+  ('Morning',  '08:00', '16:00', 'M', FALSE),
+  ('Late Morning', '10:00', '18:00', 'LM', FALSE),
+  ('Evening',  '15:00', '23:00', 'E', FALSE),
+  ('Late Evening', '16:00', '00:00', 'LE', FALSE),
+  ('Night',    '23:00', '08:00', 'N', FALSE),
   ('Off Duty', '00:00', '00:00', 'O', TRUE),
   ('Full day', '00:00', '23:59', NULL, FALSE);
 

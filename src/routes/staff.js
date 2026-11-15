@@ -9,6 +9,7 @@ const bcrypt = require('bcrypt');
 const db = require('../config/db');
 const requireStaff = require('../middleware/requireStaff');
 const { callNextForCounter } = require('../utils/callNext');
+const { LIVE_MATCH_SQL } = require('../utils/liveAssignment');
 
 // A session's staffCounterId only records which counter THIS session
 // picked — it says nothing about whether that claim still holds. If
@@ -114,6 +115,26 @@ router.get('/counters', requireStaff, async (req, res) => {
        WHERE c.is_active = TRUE
        ORDER BY c.counter_number`
     );
+
+    // The counter this employee is rostered on right now — or, failing
+    // that, the next one starting later today — so the picker can offer it
+    // first. Off-duty days and unassigned roster entries don't count.
+    const { rows: rostered } = await db.query(
+      `SELECT ca.counter_id, s.shift_name
+       FROM counter_assignments ca
+       JOIN shifts s ON s.id = ca.shift_id
+       JOIN counters c ON c.id = ca.counter_id
+       WHERE ca.employee_id = $1 AND ca.counter_id IS NOT NULL
+         AND s.is_off = FALSE AND c.is_active = TRUE
+         AND (${LIVE_MATCH_SQL} OR (ca.shift_date = CURRENT_DATE AND s.start_time > LOCALTIME))
+       ORDER BY ${LIVE_MATCH_SQL} DESC, s.start_time
+       LIMIT 1`,
+      [req.session.staff.id]
+    );
+    if (rostered[0]) {
+      const mine = rows.find((r) => r.id === rostered[0].counter_id);
+      if (mine) mine.rostered_shift_name = rostered[0].shift_name;
+    }
     res.json(rows);
   } catch (err) {
     console.error('Error fetching counters for staff:', err);

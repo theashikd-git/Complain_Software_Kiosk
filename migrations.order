@@ -12,3 +12,5 @@ migration_served_by.sql
 migration_shared_ticket_pool.sql
 migration_daily_ticket_sequence.sql
 migration_staff_console.sql
+migration_bn_names.sql
+migration_counter_short_code.sql

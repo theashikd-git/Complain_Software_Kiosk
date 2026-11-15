@@ -96,30 +96,39 @@ app.use('/admin', express.static(path.join(__dirname, 'admin'), { cacheControl: 
 // HTTPS via a self-signed cert (see certs/README.md) when one is present —
 // required for the kiosk's voice recording (getUserMedia) to work from a
 // separate device over the LAN by IP, since browsers only allow the
-// microphone on a "secure context": https://, or http://localhost. Falls
-// back to plain HTTP when no cert is set up (e.g. local development),
-// so nothing here breaks a machine that hasn't generated one.
+// microphone on a "secure context": https://, or http://localhost.
+//
+// When a cert exists, this runs HTTPS on PORT *and* a second plain-HTTP
+// listener on HTTP_PORT at the same time — so anything already bookmarked/
+// configured as http://<ip>:3000 (admin, staff, display board, or a kiosk
+// that doesn't need voice recording) keeps working unchanged, while
+// https://<ip>:3000 is the one to use wherever the microphone is needed.
+// With no cert (e.g. local development), it just falls back to a single
+// plain-HTTP server on PORT, exactly as before.
 const CERT_KEY_PATH = path.join(__dirname, 'certs', 'server.key');
 const CERT_PATH = path.join(__dirname, 'certs', 'server.cert');
 const useHttps = fs.existsSync(CERT_KEY_PATH) && fs.existsSync(CERT_PATH);
-
-const server = useHttps
-  ? https.createServer({ key: fs.readFileSync(CERT_KEY_PATH), cert: fs.readFileSync(CERT_PATH) }, app)
-  : http.createServer(app);
-const scheme = useHttps ? 'https' : 'http';
+const HTTP_PORT = process.env.HTTP_PORT || 3080;
 
 // Bind explicitly to all network interfaces (not just loopback) so kiosk
 // touchscreens elsewhere on the LAN can reach this server by its IP —
 // Node's default without a host is usually fine, but this makes it certain.
-server.listen(PORT, '0.0.0.0', () => {
-  const lanAddress = getLanAddress();
-  console.log(`Server running on port ${PORT} (${scheme.toUpperCase()}${useHttps ? ', self-signed cert' : ''})`);
-  console.log(`Local:       ${scheme}://localhost:${PORT}/`);
-  if (lanAddress) console.log(`On this LAN: ${scheme}://${lanAddress}:${PORT}/`);
-  console.log(`Admin panel: ${scheme}://localhost:${PORT}/admin`);
-  console.log(`Staff console: ${scheme}://localhost:${PORT}/staff`);
-  if (!useHttps) {
-    console.log('No TLS cert found at certs/server.key + certs/server.cert — running over plain HTTP.');
-    console.log('Voice recording will only work at http://localhost, not over a LAN IP. See certs/README.md.');
-  }
-});
+function startServer(server, port, scheme) {
+  server.listen(port, '0.0.0.0', () => {
+    const lanAddress = getLanAddress();
+    console.log(`Server running on port ${port} (${scheme.toUpperCase()}${scheme === 'https' ? ', self-signed cert' : ''})`);
+    console.log(`Local:       ${scheme}://localhost:${port}/`);
+    if (lanAddress) console.log(`On this LAN: ${scheme}://${lanAddress}:${port}/`);
+    console.log(`Admin panel: ${scheme}://localhost:${port}/admin`);
+    console.log(`Staff console: ${scheme}://localhost:${port}/staff`);
+  });
+}
+
+if (useHttps) {
+  startServer(https.createServer({ key: fs.readFileSync(CERT_KEY_PATH), cert: fs.readFileSync(CERT_PATH) }, app), PORT, 'https');
+  startServer(http.createServer(app), HTTP_PORT, 'http');
+} else {
+  startServer(http.createServer(app), PORT, 'http');
+  console.log('No TLS cert found at certs/server.key + certs/server.cert — running over plain HTTP only.');
+  console.log('Voice recording will only work at http://localhost, not over a LAN IP. See certs/README.md.');
+}

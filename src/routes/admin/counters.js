@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../../config/db');
 const { getEffectiveAssignments, getLiveRosterRow } = require('../../utils/liveAssignment');
+const { cleanShortCode } = require('../../utils/shortCode');
 
 // GET /api/admin/counters — list all counters (including inactive, for
 // management). "assigned_employee_name"/"current_employee_id" reflect who is
@@ -102,9 +103,12 @@ router.put('/:id/now', async (req, res) => {
 router.post('/', async (req, res) => {
   const client = await db.connect();
   try {
-    const { counter_number, counter_name, counter_name_bn, assigned_employee_id, service_ids } = req.body;
+    const { counter_number, counter_name, counter_name_bn, short_code, assigned_employee_id, service_ids } = req.body;
     if (!counter_number || !counter_name) {
       return res.status(400).json({ error: 'Counter number and name are required.' });
+    }
+    if (!cleanShortCode(short_code)) {
+      return res.status(400).json({ error: 'A short code is required (it is how the Excel roster finds this counter).' });
     }
     const ids = Array.isArray(service_ids)
       ? [...new Set(service_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0))]
@@ -112,8 +116,8 @@ router.post('/', async (req, res) => {
 
     await client.query('BEGIN');
     const { rows } = await client.query(
-      'INSERT INTO counters (counter_number, counter_name, counter_name_bn, assigned_employee_id) VALUES ($1, $2, $3, $4) RETURNING id',
-      [counter_number.trim(), counter_name.trim(), counter_name_bn?.trim() || null, assigned_employee_id || null]
+      'INSERT INTO counters (counter_number, counter_name, counter_name_bn, short_code, assigned_employee_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [counter_number.trim(), counter_name.trim(), counter_name_bn?.trim() || null, cleanShortCode(short_code), assigned_employee_id || null]
     );
     const counterId = rows[0].id;
     if (ids.length) {
@@ -133,7 +137,7 @@ router.post('/', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     if (err.code === '23505') { // unique_violation
-      return res.status(409).json({ error: 'A counter with this number already exists.' });
+      return res.status(409).json({ error: 'A counter with this number or short code already exists.' });
     }
     console.error('Error creating counter:', err);
     res.status(500).json({ error: 'Could not create counter.' });
@@ -177,6 +181,12 @@ router.put('/:id', async (req, res) => {
         [counter_name_bn?.trim() || null, req.params.id]
       );
     }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'short_code')) {
+      await client.query('UPDATE counters SET short_code = $1 WHERE id = $2', [
+        cleanShortCode(req.body.short_code),
+        req.params.id
+      ]);
+    }
     if (Object.prototype.hasOwnProperty.call(req.body, 'service_ids')) {
       const ids = Array.isArray(service_ids)
         ? [...new Set(service_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0))]
@@ -193,6 +203,9 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     await client.query('ROLLBACK');
+    if (err.code === '23505') { // unique_violation
+      return res.status(409).json({ error: 'Another counter already uses this number or short code.' });
+    }
     console.error('Error updating counter:', err);
     res.status(500).json({ error: 'Could not update counter.' });
   } finally {

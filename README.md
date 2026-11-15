@@ -315,5 +315,7 @@ npm start       # production
 - 🔒 The admin panel isn't linked publicly, but every admin request still requires a login.
 - 🏷️ Counters must be **active** to appear on the complaint form, and **tagged with a service** to receive tickets.
 - 📅 Roster assignments are overlap-protected: an employee can't be on two counters at the same time.
+- 📥 **Excel roster import** (Roster page) reads the shift code on each employee's row and, if present, the counter short code on the row beneath (e.g. `EMG`, `GF C`). Set each counter's **Short code** on the Counters page first. The import shows a preview before saving; importing again replaces counters with the file's, except on dates already past. Employee names must match the Employees list (case ignored).
+- 🔔 When a staff member opens the counter picker, the counter they're rostered on is highlighted first.
 - 🎙️ Voice recordings are stored in `public/uploads/voice/` and are **never committed** to git (patient data).
 - 🔁 Admin sessions are kept in memory, so admins are logged out whenever the app restarts.

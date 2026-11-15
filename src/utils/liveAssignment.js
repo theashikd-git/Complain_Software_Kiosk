@@ -102,4 +102,4 @@ async function getLiveRosterRow(db, counterId) {
   return rows[0] || null;
 }
 
-module.exports = { getEffectiveAssignments, getLiveRosterRow };
+module.exports = { getEffectiveAssignments, getLiveRosterRow, LIVE_MATCH_SQL };

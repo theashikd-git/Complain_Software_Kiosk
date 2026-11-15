@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const db = require('../../config/db');
 const { listSheets, parseRosterSheet } = require('../../utils/rosterImport');
+const { buildImportPlan, applyImportPlan, ImportError } = require('../../utils/rosterImportPlan');
 const { findOverlappingAssignment } = require('../../utils/rosterOverlap');
 
 // GET /api/admin/roster?date=2026-08-09 — all assignments for a given date,
@@ -136,12 +137,13 @@ router.post('/', async (req, res) => {
 // (see the August 2026 file this was built against: 5 sheets, only
 // one with actual data), so we never guess which sheet to use.
 //
-// Every row/day cell becomes one counter_assignments row with
-// counter_id = NULL — the admin assigns the counter afterwards from
-// the Roster page's "All Entries" view. Re-importing the exact same
-// file is a no-op (ON CONFLICT (employee_id, shift_date, shift_id) DO
-// NOTHING — that row already exists), and any counter already
-// assigned to a row is always left untouched either way.
+// Every row/day cell becomes one counter_assignments row. If the sheet
+// has a counter short code under the employee's name for that day, the
+// row gets that counter (matched against counters.short_code); otherwise
+// counter_id stays NULL and the admin assigns it from "All Entries".
+// The sheet is the source of truth on re-import: a different counter in
+// the file replaces the stored one, except on dates already past. The
+// full rules live in src/utils/rosterImportPlan.js.
 //
 // IMPORTANT — since migration_multi_shift.sql, an employee can have
 // more than one shift on the same day, so this is NOT as automatically
@@ -209,78 +211,28 @@ router.post('/import', (req, res) => {
         return res.status(400).json({ error: parseErr.message });
       }
 
-      const daysInMonth = new Date(year, month, 0).getDate();
+      // mode=preview reports what the import WOULD do without saving; the
+      // admin UI shows that, then re-sends the same file with mode=import.
+      const previewOnly = req.body.mode === 'preview';
 
-      // Every distinct code actually used in the sheet must already have a
-      // matching shift configured (by shift_code) — better to block the
-      // whole import with a clear message than silently leave some days
-      // with no shift because a code wasn't recognized.
-      const usedCodes = new Set();
-      parsed.employeeRows.forEach((e) => Object.values(e.days).forEach((c) => usedCodes.add(c)));
-
-      let shiftByCode = {};
-      if (usedCodes.size) {
-        const { rows: shiftRows } = await db.query(
-          'SELECT id, shift_code FROM shifts WHERE shift_code = ANY($1::text[])',
-          [Array.from(usedCodes)]
-        );
-        shiftByCode = Object.fromEntries(shiftRows.map((s) => [s.shift_code, s.id]));
-      }
-      const missingCodes = Array.from(usedCodes).filter((c) => !shiftByCode[c]);
-      if (missingCodes.length) {
-        return res.status(400).json({
-          error: `These shift codes aren't set up yet: ${missingCodes.join(', ')}. Add a matching Shift Code to a shift on the Shifts page, then re-import.`
-        });
-      }
-
-      // Match employee names against the employees table — exact match,
-      // ignoring case and surrounding whitespace. A name that doesn't
-      // match isn't fatal to the whole import; that employee's rows are
-      // just skipped and reported back so the admin can fix the sheet or
-      // the employee record and re-import.
-      const { rows: employees } = await db.query('SELECT id, full_name FROM employees');
-      const employeeByName = new Map(employees.map((e) => [e.full_name.trim().toLowerCase(), e.id]));
-
-      const toInsert = [];
-      const unmatchedEmployees = [];
-      const skippedInvalidDays = [];
-
-      parsed.employeeRows.forEach((row) => {
-        const employeeId = employeeByName.get(row.name.toLowerCase());
-        if (!employeeId) {
-          unmatchedEmployees.push(row.name);
-          return;
+      let plan;
+      try {
+        plan = await buildImportPlan(db, parsed, month, year);
+      } catch (planErr) {
+        if (planErr instanceof ImportError) {
+          return res.status(planErr.status).json({ error: planErr.message, ...planErr.extra });
         }
-        Object.entries(row.days).forEach(([dayStr, code]) => {
-          const day = Number(dayStr);
-          if (day > daysInMonth) {
-            skippedInvalidDays.push(`${row.name}, day ${day} (${month}/${year} only has ${daysInMonth} days)`);
-            return;
-          }
-          const shift_date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          toInsert.push({ employee_id: employeeId, shift_date, shift_id: shiftByCode[code] });
-        });
-      });
+        throw planErr;
+      }
 
-      if (!toInsert.length) {
-        return res.status(400).json({
-          error: 'Nothing to import — no rows matched an existing employee.',
-          unmatchedEmployees
-        });
+      if (previewOnly) {
+        return res.json({ preview: true, sheetName, ...plan.summary });
       }
 
       const client = await db.connect();
       try {
         await client.query('BEGIN');
-        for (const row of toInsert) {
-          await client.query(
-            `INSERT INTO counter_assignments (employee_id, shift_date, shift_id, counter_id)
-             VALUES ($1, $2, $3, NULL)
-             ON CONFLICT (employee_id, shift_date, shift_id)
-             DO NOTHING`,
-            [row.employee_id, row.shift_date, row.shift_id]
-          );
-        }
+        await applyImportPlan(client, plan);
         await client.query('COMMIT');
       } catch (dbErr) {
         await client.query('ROLLBACK');
@@ -297,14 +249,14 @@ router.post('/import', (req, res) => {
       // Excel re-import left a stale old shift behind — either way it's
       // worth surfacing rather than leaving it silent.
       const touchedPairs = new Map(); // "employeeId|date" -> {employee_id, shift_date}
-      toInsert.forEach((row) => touchedPairs.set(`${row.employee_id}|${row.shift_date}`, row));
+      plan.entries.forEach((row) => touchedPairs.set(`${row.employee_id}|${row.shift_date}`, row));
       const employeeIds = [...touchedPairs.values()].map((r) => r.employee_id);
       const shiftDates = [...touchedPairs.values()].map((r) => r.shift_date);
 
       let multipleShiftsWarnings = [];
       if (employeeIds.length) {
         const { rows: multiRows } = await db.query(
-          `SELECT e.full_name, ca.shift_date,
+          `SELECT e.full_name, to_char(ca.shift_date, 'YYYY-MM-DD') AS shift_date,
                   array_agg(s.shift_name ORDER BY s.start_time) AS shift_names
            FROM counter_assignments ca
            JOIN employees e ON e.id = ca.employee_id
@@ -321,15 +273,7 @@ router.post('/import', (req, res) => {
         );
       }
 
-      res.json({
-        success: true,
-        sheetName,
-        imported: toInsert.length,
-        unmatchedEmployees,
-        skippedInvalidDays,
-        warnings: parsed.warnings,
-        multipleShiftsWarnings
-      });
+      res.json({ success: true, sheetName, ...plan.summary, multipleShiftsWarnings });
     } catch (outerErr) {
       console.error('Error importing roster:', outerErr);
       res.status(500).json({ error: 'Could not import roster.' });

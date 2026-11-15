@@ -21,12 +21,15 @@
     const occupiedTag = c.active_employee_id
       ? `<span class="occupied-tag">In use — ${escapeHtml(c.active_employee_name)}</span>`
       : '';
+    const rosterTag = c.rostered_shift_name
+      ? `<span class="roster-tag">Your roster · ${escapeHtml(c.rostered_shift_name)}</span>`
+      : '';
     return `
-      <button type="button" class="counter-option" data-id="${c.id}">
+      <button type="button" class="counter-option${c.rostered_shift_name ? ' rostered' : ''}" data-id="${c.id}">
         <span>
           <span class="name">${escapeHtml(c.counter_number)} — ${escapeHtml(c.counter_name)}</span>
         </span>
-        ${occupiedTag}
+        ${rosterTag}${occupiedTag}
       </button>
     `;
   }
@@ -59,6 +62,8 @@
         listEl.innerHTML = '<p class="sub">No counters are set up yet. Please ask an admin.</p>';
         return;
       }
+      // The counter this employee is rostered on goes first, highlighted.
+      counters.sort((a, b) => Boolean(b.rostered_shift_name) - Boolean(a.rostered_shift_name));
       listEl.innerHTML = counters.map(optionHtml).join('');
       listEl.querySelectorAll('.counter-option').forEach((btn) => {
         btn.addEventListener('click', () => selectCounter(Number(btn.dataset.id), false));
