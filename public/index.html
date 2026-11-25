@@ -63,8 +63,6 @@
        one page — star tap just selects a rating (doesn't submit), and
        Submit at the bottom sends both together. -->
   <section class="screen screen-step" id="screen-satisfied" hidden>
-    <button class="btn-text-link back-link" id="back-from-satisfied" data-i18n="backChevron">‹ Back</button>
-
     <div style="display: flex; flex-direction: column; align-items: center; text-align: center;">
       <div class="big-emoji" aria-hidden="true">
         <svg viewBox="0 0 64 64" width="84" height="84" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
@@ -103,16 +101,27 @@
 
     <p class="error-msg" id="satisfied-identify-error" hidden></p>
 
-    <button class="btn-primary btn-submit" id="submit-satisfied">
-      <span data-i18n="submitLabel">Submit</span>
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-    </button>
+    <div class="form-actions">
+      <button class="btn-back" id="back-from-satisfied">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+        <span data-i18n="backLabel">Back</span>
+      </button>
+      <button class="btn-primary btn-submit" id="submit-satisfied">
+        <span data-i18n="submitLabel">Submit</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
   </section>
 
   <!-- COMPLAIN — one page, all three questions stacked together, same
        kiosk background as every other step. -->
   <section class="screen screen-step" id="screen-complain" hidden>
-    <button class="btn-text-link back-link" id="back-from-complain" data-i18n="backChevron">‹ Back</button>
+    <div class="step-progress">
+      <div class="step-bars" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="step-count" id="complain-step-count" aria-live="polite"></div>
+    </div>
+
+    <div class="complain-step" data-step="1">
     <h2 class="step-title" data-i18n="complainTitle">Tell us what happened</h2>
 
     <div class="complain-section">
@@ -127,7 +136,9 @@
         <button class="btn-text-link" id="voice-clear" hidden data-i18n="voiceRemoveLabel">Remove recording</button>
       </div>
     </div>
+    </div>
 
+    <div class="complain-step" data-step="2" hidden>
     <div class="complain-section">
       <h3 class="section-title" data-i18n="counterTitle">Which counter did you visit?</h3>
       <p class="field-hint" data-i18n="counterHint">Select one or more</p>
@@ -135,7 +146,9 @@
         <div class="counter-empty" data-i18n="counterLoading">Loading counters...</div>
       </div>
     </div>
+    </div>
 
+    <div class="complain-step" data-step="3" hidden>
     <div class="complain-section">
       <h3 class="section-title" data-i18n="idTitle">How should we identify you?</h3>
       <div class="id-type-grid" id="id-type-grid">
@@ -150,13 +163,24 @@
         <button class="btn-text-link" id="id-clear" data-i18n="idClear">Clear</button>
       </div>
     </div>
+    </div>
 
     <p class="error-msg" id="complain-error" hidden></p>
 
-    <button class="btn-primary btn-submit" id="submit-complaint">
-      <span data-i18n="submitLabel">Submit</span>
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-    </button>
+    <div class="form-actions">
+      <button class="btn-back" id="back-from-complain">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+        <span data-i18n="backLabel">Back</span>
+      </button>
+      <button class="btn-primary btn-next" id="complain-next">
+        <span data-i18n="nextLabel">Next</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+      <button class="btn-primary btn-submit" id="submit-complaint" hidden>
+        <span data-i18n="submitLabel">Submit</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
   </section>
 
   <!-- GET A SERIAL NUMBER — pick a service (not a counter — the counter
@@ -164,7 +188,6 @@
        queue ticket. Turns the kiosk into a simple queue-management tool
        alongside its feedback/complaint role. -->
   <section class="screen screen-step" id="screen-serial" hidden>
-    <button class="btn-text-link back-link" id="back-from-serial" data-i18n="backChevron">‹ Back</button>
     <h2 class="step-title" data-i18n="serialTitle">Get a Serial Number</h2>
     <p class="step-sub" data-i18n="serialSub">Select the service you need</p>
 
@@ -176,10 +199,16 @@
 
     <p class="error-msg" id="serial-error" hidden></p>
 
-    <button class="btn-primary btn-submit" id="get-serial-btn" disabled>
-      <span data-i18n="getMyNumberLabel">Get My Number</span>
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-    </button>
+    <div class="form-actions">
+      <button class="btn-back" id="back-from-serial">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+        <span data-i18n="backLabel">Back</span>
+      </button>
+      <button class="btn-primary btn-submit" id="get-serial-btn" disabled>
+        <span data-i18n="getMyNumberLabel">Get My Number</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
   </section>
 
   <!-- GET A SERIAL NUMBER — result: the issued ticket number. Printing

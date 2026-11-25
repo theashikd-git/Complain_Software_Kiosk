@@ -23,6 +23,8 @@
 // admin-entered form regardless of UI language — only this screen's own
 // chrome (titles, labels, placeholders, messages) is translated.
 // ==========================================================
+const toBnDigits = (n) => String(n).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[d]);
+
 const I18N = {
   en: {
     docTitle: 'Your Opinion',
@@ -32,7 +34,9 @@ const I18N = {
     choiceComplainLabel: 'Complain',
     tapHint: 'Tap to continue',
     serialBannerLabel: 'Get a Serial Number',
-    backChevron: '‹ Back',
+    backLabel: 'Back',
+    nextLabel: 'Next',
+    stepOf: (n, total) => `Step ${n} of ${total}`,
     satisfiedTitle: 'Glad to hear it!',
     satisfiedSub: 'Tap a star to rate your visit',
     complainTitle: 'Tell us what happened',
@@ -67,6 +71,7 @@ const I18N = {
     ticketEyebrow: 'Your number is',
     ticketHint: 'Please wait to be called. Keep this number in mind.',
     errNoText: 'Please tell us what happened, in text or voice.',
+    errStillRecording: 'Please stop the recording first — tap the red button.',
     errNoCounter: 'Please select at least one counter you visited.',
     errNoId: 'Please tell us how to identify you — pick one option below and enter it.',
     errNoRating: 'Please tap a star to rate your visit.',
@@ -93,7 +98,9 @@ const I18N = {
     choiceComplainLabel: 'অভিযোগ',
     tapHint: 'চালিয়ে যেতে চাপুন',
     serialBannerLabel: 'সিরিয়াল নম্বর নিন',
-    backChevron: '‹ ফিরে যান',
+    backLabel: 'ফিরে যান',
+    nextLabel: 'পরবর্তী',
+    stepOf: (n, total) => `ধাপ ${toBnDigits(n)}/${toBnDigits(total)}`,
     satisfiedTitle: 'শুনে ভালো লাগলো!',
     satisfiedSub: 'রেটিং দিতে একটি স্টারে চাপুন',
     complainTitle: 'কী ঘটেছে আমাদের জানান',
@@ -128,6 +135,7 @@ const I18N = {
     ticketEyebrow: 'আপনার নম্বর হলো',
     ticketHint: 'ডাকার জন্য অপেক্ষা করুন। এই নম্বরটি মনে রাখুন।',
     errNoText: 'অনুগ্রহ করে কী ঘটেছে তা লিখে অথবা ভয়েসে জানান।',
+    errStillRecording: 'অনুগ্রহ করে আগে রেকর্ডিং বন্ধ করুন — লাল বাটনে চাপুন।',
     errNoCounter: 'অনুগ্রহ করে আপনি যে কাউন্টারে গিয়েছিলেন তা নির্বাচন করুন।',
     errNoId: 'অনুগ্রহ করে আমাদের জানান কীভাবে আপনাকে সনাক্ত করা যাবে — নিচে থেকে একটি অপশন বেছে তথ্য দিন।',
     errNoRating: 'অনুগ্রহ করে আপনার ভিজিট রেট করতে একটি স্টারে চাপুন।',
@@ -451,6 +459,7 @@ let countersEmptyState = null; // null once loaded fine; 'empty' | 'error' other
 function openComplainScreen() {
   complainState.submissionId = null;
   showScreen('complain');
+  showComplainStep(1);
   if (!countersLoaded) loadCountersIntoScreen();
   startUnspecifiedComplaint();
 }
@@ -471,9 +480,61 @@ async function startUnspecifiedComplaint() {
   }
 }
 
+// ---- Three steps: 1 what happened, 2 which counter(s), 3 identification ----
+// Same single screen and the same state/Submit as before — each step just
+// shows one section at a time so everything can be bigger.
+const COMPLAIN_STEPS = 3;
+const complainStepEls = Array.from(document.querySelectorAll('.complain-step'));
+const complainBars = Array.from(document.querySelectorAll('#screen-complain .step-bars span'));
+const complainStepCount = document.getElementById('complain-step-count');
+const complainNextBtn = document.getElementById('complain-next');
+let complainStep = 1;
+
+function updateComplainProgress() {
+  complainBars.forEach((bar, i) => bar.classList.toggle('on', i < complainStep));
+  complainStepCount.textContent = t('stepOf', complainStep, COMPLAIN_STEPS);
+}
+
+function showComplainStep(n) {
+  complainStep = n;
+  complainStepEls.forEach((el) => (el.hidden = Number(el.dataset.step) !== n));
+  complainNextBtn.hidden = n >= COMPLAIN_STEPS;
+  submitBtn.hidden = n < COMPLAIN_STEPS;
+  complainError.hidden = true;
+  hideKeyboard();
+  updateComplainProgress();
+  window.scrollTo(0, 0);
+}
+
 document.getElementById('back-from-complain').addEventListener('click', () => {
+  if (complainStep > 1) {
+    showComplainStep(complainStep - 1);
+    return;
+  }
   showScreen('choice');
   hideKeyboard();
+});
+
+// Next only moves on once this step's own question is answered, so a
+// patient finds out right here — not at the very end — what's missing.
+complainNextBtn.addEventListener('click', () => {
+  complainError.hidden = true;
+  if (complainStep === 1) {
+    if (isRecording) {
+      showComplainError(t('errStillRecording'));
+      return;
+    }
+    if (!complaintText.value.trim() && !complainState.voiceBlob) {
+      showComplainError(t('errNoText'));
+      return;
+    }
+  } else if (complainStep === 2) {
+    if (complainState.selectedCounterIds.size === 0) {
+      showComplainError(t('errNoCounter'));
+      return;
+    }
+  }
+  showComplainStep(complainStep + 1);
 });
 
 document.addEventListener('keydown', (e) => {
@@ -487,7 +548,10 @@ document.addEventListener('keydown', (e) => {
 // ---- What happened ----
 complaintText.setAttribute('inputmode', 'none'); // ask mobile/touch OSes to suppress their own keyboard, since we supply ours
 complaintText.addEventListener('focus', () => showKeyboard(complaintText));
-complaintText.addEventListener('input', () => autoGrowTextarea(complaintText));
+complaintText.addEventListener('input', () => {
+  autoGrowTextarea(complaintText);
+  complainError.hidden = true;
+});
 
 // Grows the complaint box with what's typed (up to a cap, then it scrolls
 // internally) so the text already written stays visible instead of being
@@ -512,6 +576,7 @@ function renderCounterGrid() {
     btn.className = 'counter-btn' + (complainState.selectedCounterIds.has(c.id) ? ' selected' : '');
     btn.innerHTML = `<span>${escapeHtml(c.counter_number)}</span><span class="counter-name">${escapeHtml(localizedName(c.counter_name, c.counter_name_bn))}</span>`;
     btn.addEventListener('click', () => {
+      complainError.hidden = true;
       if (complainState.selectedCounterIds.has(c.id)) {
         complainState.selectedCounterIds.delete(c.id);
         btn.classList.remove('selected');
@@ -655,12 +720,16 @@ function showComplainError(msg) {
 submitBtn.addEventListener('click', async () => {
   complainError.hidden = true;
 
+  // Next already checks steps 1 and 2; re-check here as a safety net and
+  // jump back to the step that's missing something.
   const text = complaintText.value.trim();
   if (!text && !complainState.voiceBlob) {
+    showComplainStep(1);
     showComplainError(t('errNoText'));
     return;
   }
   if (complainState.selectedCounterIds.size === 0) {
+    showComplainStep(2);
     showComplainError(t('errNoCounter'));
     return;
   }
@@ -1073,6 +1142,7 @@ function refreshDynamicUiText() {
     updateIdValueFieldLabels('id-value-label', idValueInput, complainState.id_type);
   }
   voiceBtnLabel.textContent = isRecording ? t('voiceStopLabel') : t('voiceRecordLabel');
+  updateComplainProgress();
   if (countersLoaded) renderCounterGrid();
   if (serialServicesLoaded) renderServiceGrid();
 

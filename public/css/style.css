@@ -427,16 +427,25 @@ textarea:focus-visible {
 .star-btn {
   background: none;
   border: none;
-  font-size: 52px;
+  /* ~35% bigger than before (52px) for an easy touch target; min() keeps
+     all five stars on one line on narrow phone screens. */
+  font-size: min(70px, 14vw);
   line-height: 1;
-  color: #d6dee5;
-  transition: color 0.12s ease, transform 0.1s ease;
+  /* Unselected: gray outline, transparent inside (stroke + clear fill on
+     the ★ glyph). Selected stars below switch to solid gold. */
+  color: var(--ink-soft);
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 2.5px var(--ink-soft);
+  transition: color 0.12s ease, -webkit-text-fill-color 0.12s ease,
+              -webkit-text-stroke-color 0.12s ease, transform 0.1s ease;
   padding: 4px;
 }
 .star-btn:active { transform: scale(1.15); }
 .star-btn.lit,
 .star-btn.hover-lit {
   color: var(--gold);
+  -webkit-text-fill-color: var(--gold);
+  -webkit-text-stroke-color: var(--gold);
 }
 .star-btn.lit { animation: star-pop 0.4s ease; }
 @keyframes star-pop {
@@ -584,14 +593,79 @@ textarea:focus-visible {
 .screen-step {
   animation: descend 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.back-link {
-  align-self: flex-start;
-  margin: 0 0 6px -6px; /* small negative margin so the larger tap target doesn't shift the text */
-  padding: 8px 10px;
-  font-weight: 600;
+/* Footer row on every step screen: a clearly visible secondary Back button
+   on the left (outlined, 1/3 width) and the big red action button on the
+   right (2/3), so Back sits right where the eyes land after filling in. */
+.form-actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 10px;
+  margin-top: 8px;
 }
+.form-actions .btn-submit { margin-top: 0; width: auto; }
+.btn-next {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+/* .btn-submit / .btn-next set display:flex, which would otherwise beat the
+   hidden attribute — the Complain steps swap Next and Submit with it. */
+.form-actions [hidden] { display: none !important; }
+.btn-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 17px 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  border: 2px solid #9fb3cf;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 16px;
+  transition: transform 0.1s ease;
+}
+.btn-back:active { transform: scale(0.98); }
 #screen-complain .step-title { margin-top: 2px; }
 #screen-complain .step-sub { margin-bottom: 20px; }
+
+/* ---- Complain is split into 3 steps (what happened / counter / ID), one
+   per screenful, so everything on it is sized up for touch. ---- */
+.step-progress { margin: 26px 0 18px; } /* top gap keeps the bars clear of the floating language toggle */
+.step-bars { display: flex; gap: 6px; }
+.step-bars span {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--blue-line);
+  transition: background 0.2s ease;
+}
+.step-bars span.on { background: var(--blue); }
+.step-count {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+#screen-complain .step-title { font-size: clamp(26px, 6.5vw, 34px); margin-bottom: 16px; }
+#screen-complain .complain-step { flex: 0 0 auto; }
+#screen-complain .complain-section { padding: 22px 20px; }
+#screen-complain .section-title { font-size: 22px; margin-bottom: 16px; }
+#screen-complain .field-hint { font-size: 15px; margin: -8px 0 16px; }
+#screen-complain .complaint-textarea { font-size: 20px; min-height: 240px; max-height: 400px; padding: 18px; }
+#screen-complain .btn-voice { font-size: 18px; padding: 18px 30px; }
+#screen-complain .mic-dot { width: 12px; height: 12px; }
+#screen-complain .counter-btn { padding: 30px 10px; font-size: 28px; }
+#screen-complain .counter-btn .counter-name { font-size: 16px; }
+#screen-complain .id-type-btn { padding: 38px 12px; font-size: 22px; }
+#screen-complain .field-label { font-size: 16px; }
+#screen-complain .text-input { font-size: 22px; padding: 20px; }
+#screen-complain .error-msg { font-size: 16px; }
+#screen-complain .form-actions { margin-top: auto; padding-top: 18px; }
+#screen-complain .btn-back,
+#screen-complain .form-actions .btn-primary { padding-top: 22px; padding-bottom: 22px; font-size: 18px; }
 
 .complain-section {
   background: var(--surface);
@@ -953,6 +1027,13 @@ audio { width: 100%; height: 34px; }
   .kiosk { max-width: 860px; }
   .choice-box { min-height: 240px; }
   .choice-card { max-width: 640px; padding: 52px 44px 46px; }
+
+  /* Home screen is 20% larger on monitors (e.g. the 22" kiosk display).
+     `zoom` scales everything inside — text, tiles, icons, padding, radius,
+     shadows — by the same factor, so proportions stay exactly as designed.
+     The 1.2 is the only number to change to resize the home screen. */
+  .screen-choice-outer .choice-card,
+  .screen-choice-outer .serial-banner { zoom: 1.2; }
 }
 
 /* Tablets and small windows: keyboard keys shrink a step, and the
