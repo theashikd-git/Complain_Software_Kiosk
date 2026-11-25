@@ -132,6 +132,7 @@
           <span class="mic-dot"></span>
           <span id="voice-btn-label" data-i18n="voiceRecordLabel">Record voice complaint</span>
         </button>
+        <p class="voice-status" id="voice-status" hidden></p>
         <audio id="voice-preview" controls hidden></audio>
         <button class="btn-text-link" id="voice-clear" hidden data-i18n="voiceRemoveLabel">Remove recording</button>
       </div>
@@ -244,13 +245,21 @@
   <div class="osk-toolbar">
     <div class="osk-lang-toggle">
       <button type="button" class="osk-lang-btn active" data-lang="en">EN</button>
-      <button type="button" class="osk-lang-btn" data-lang="bn">বাংলা</button>
+      <button type="button" class="osk-lang-btn" data-lang="ph">ফোনেটিক</button>
+      <button type="button" class="osk-lang-btn" data-lang="bn">বাংলা অক্ষর</button>
     </div>
     <button type="button" class="osk-done" id="osk-done">Done ✓</button>
+  </div>
+  <!-- Phonetic mode only: the English letters typed so far and Bangla word
+       suggestions for them. -->
+  <div class="osk-suggest" id="osk-suggest" hidden>
+    <span class="osk-buf hint" id="osk-buf"></span>
+    <div class="osk-cands" id="osk-cands"></div>
   </div>
   <div class="osk-keys" id="osk-keys"></div>
 </div>
 
+<script src="/js/phonetic.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

@@ -691,7 +691,7 @@ textarea:focus-visible {
    so a field lower on the page has somewhere to scroll up to instead of
    staying stuck behind the fixed keyboard (see showKeyboard() in app.js). */
 .screen.keyboard-open {
-  padding-bottom: 400px;
+  padding-bottom: 470px; /* tall enough for the phonetic suggestion bar too */
   transition: padding-bottom 0.15s ease;
 }
 
@@ -743,6 +743,8 @@ textarea:focus-visible {
   font-size: 15px;
 }
 .btn-voice.recording { background: var(--red); color: #fff; }
+.voice-status { margin: 0; font-size: 16px; line-height: 1.5; color: var(--ink-soft); }
+.voice-status[hidden] { display: none; }
 .mic-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); }
 .btn-voice.recording .mic-dot { background: #fff; animation: pulse-dot 1s ease-in-out infinite; }
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
@@ -1013,6 +1015,77 @@ audio { width: 100%; height: 34px; }
 .osk-key.func.active { background: var(--blue); }
 .osk-key.func:active { background: #4d6070; }
 
+/* Phonetic mode: each key shows the English letter and, small beneath it,
+   the Bangla it makes. */
+.osk-key.has-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 0;
+}
+.osk-key .k-latin { font-size: 18px; line-height: 1.1; }
+.osk-key .k-hint { font-size: 13px; line-height: 1; color: var(--blue); font-weight: 600; }
+
+/* The hasant (্) is what joins two consonants into a conjunct — big and
+   green so it's easy to find. */
+.osk-key.hasant {
+  flex: 1.7;
+  background: var(--green);
+  color: #fff;
+  font-size: 22px;
+}
+.osk-key.hasant:active { background: #0d6a49; }
+/* Ready-made conjunct keys (যুক্ত layer) */
+.osk-key.conj { font-size: 22px; }
+
+/* Suggestion bar above the keys (phonetic mode): the English letters typed
+   so far, then Bangla word candidates — the first (blue) is what's already
+   in the text box and what Space keeps. */
+.osk-suggest {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background: #fff;
+  border-radius: 12px;
+  overflow-x: auto;
+}
+.osk-suggest[hidden] { display: none; }
+.osk-buf {
+  flex: none;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: #eef2f6;
+  border-radius: 8px;
+  padding: 7px 12px;
+}
+.osk-buf.hint {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  background: none;
+  padding-left: 2px;
+}
+.osk-cands { display: flex; gap: 8px; }
+.osk-cand {
+  flex: none;
+  border: 1.5px solid var(--blue-line);
+  background: #fff;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 22px;
+  padding: 8px 16px;
+  border-radius: 10px;
+}
+.osk-cand.first { background: var(--blue); border-color: var(--blue); color: #fff; }
+.osk-cand:active { transform: scale(0.96); }
+
 /* ==========================================================
    Responsive
    The kiosk build targets one fixed touchscreen, but the same
@@ -1042,7 +1115,7 @@ audio { width: 100%; height: 34px; }
   .counter-grid { grid-template-columns: 1fr 1fr; }
   .osk { --osk-key-height: 52px; --osk-gap: 6px; }
   .osk.lang-bn { --osk-key-height: 44px; --osk-gap: 5px; }
-  .screen.keyboard-open { padding-bottom: 340px; }
+  .screen.keyboard-open { padding-bottom: 410px; }
 }
 
 /* Phones */
@@ -1054,7 +1127,7 @@ audio { width: 100%; height: 34px; }
   .osk { --osk-key-height: 46px; --osk-gap: 5px; }
   .osk.lang-bn { --osk-key-height: 40px; --osk-gap: 4px; }
   .osk-key { font-size: 14px; }
-  .screen.keyboard-open { padding-bottom: 300px; }
+  .screen.keyboard-open { padding-bottom: 370px; }
 }
 
 /* Short / landscape screens (e.g. a tablet on its side, or a kiosk

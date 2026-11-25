@@ -37,6 +37,10 @@ const I18N = {
     backLabel: 'Back',
     nextLabel: 'Next',
     stepOf: (n, total) => `Step ${n} of ${total}`,
+    phHint: 'Type the sound in English letters, e.g. ami',
+    voiceListening: 'Listening… please speak. Your words appear in the box above.',
+    voiceTextHint: 'The text above came from your voice — please check it and fix any mistakes.',
+    voiceSttFailed: 'Could not turn your voice into text (the internet may be down). Your recording is still being saved — you can also type.',
     satisfiedTitle: 'Glad to hear it!',
     satisfiedSub: 'Tap a star to rate your visit',
     complainTitle: 'Tell us what happened',
@@ -101,6 +105,10 @@ const I18N = {
     backLabel: 'ফিরে যান',
     nextLabel: 'পরবর্তী',
     stepOf: (n, total) => `ধাপ ${toBnDigits(n)}/${toBnDigits(total)}`,
+    phHint: 'ইংরেজি অক্ষরে উচ্চারণ লিখুন, যেমন: ami',
+    voiceListening: 'শুনছি… আপনার কথা বলুন। আপনার কথা ওপরের বক্সে লেখা হবে।',
+    voiceTextHint: 'ওপরের লেখাটি আপনার কথা থেকে তৈরি — দেখে নিন এবং ভুল থাকলে ঠিক করে দিন।',
+    voiceSttFailed: 'আপনার কথা লেখায় রূপান্তর করা যায়নি (ইন্টারনেট বন্ধ থাকতে পারে)। আপনার রেকর্ডিং ঠিকই সংরক্ষণ হচ্ছে — আপনি টাইপও করতে পারেন।',
     satisfiedTitle: 'শুনে ভালো লাগলো!',
     satisfiedSub: 'রেটিং দিতে একটি স্টারে চাপুন',
     complainTitle: 'কী ঘটেছে আমাদের জানান',
@@ -261,6 +269,7 @@ const screens = {
 };
 
 function showScreen(name) {
+  if (name !== 'complain') stopVoiceIfActive(); // don't keep listening after leaving the complaint page
   Object.values(screens).forEach((el) => (el.hidden = true));
   screens[name].hidden = false;
 }
@@ -652,6 +661,118 @@ let mediaRecorder = null;
 let recordedChunks = [];
 let isRecording = false;
 
+// ---- Voice -> text ----
+// While recording, the browser's own speech recognition (Chrome's
+// SpeechRecognition, which sends the audio to Google for transcription and
+// so needs internet) turns what's said into Bangla/English text, written
+// live into the complaint box. The patient can read and fix it with the
+// on-screen keyboard. The audio itself is still recorded and submitted
+// exactly as before, so the original is never lost if the text is off.
+// Browsers without SpeechRecognition just skip this — recording still works.
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+const voiceStatus = document.getElementById('voice-status');
+let recognition = null;
+let recWanted = false; // true from Record until Stop — drives auto-restart on pauses
+let recFinal = '';     // confirmed text so far
+let recInterim = '';   // the still-changing tail of what's being said
+let recPrefix = '';    // a space, when appending after existing text
+let recStart = 0;      // where in the text box our text starts
+let recSegLen = 0;     // how many characters of it we've written
+let recGotText = false;
+
+function setVoiceStatus(key) {
+  voiceStatus.dataset.key = key || '';
+  voiceStatus.hidden = !key;
+  if (key) voiceStatus.textContent = t(key);
+}
+
+// Writes the recognised text into the box, replacing only our own segment —
+// anything the patient typed before or after it is left alone.
+function recWrite() {
+  const body = recFinal + (recInterim ? (recFinal ? ' ' : '') + recInterim : '');
+  const seg = body ? recPrefix + body : '';
+  complaintText.value =
+    complaintText.value.slice(0, recStart) + seg + complaintText.value.slice(recStart + recSegLen);
+  recSegLen = seg.length;
+  complaintText.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function launchRecognition() {
+  const rec = new SpeechRec();
+  recognition = rec;
+  rec.lang = uiLang === 'bn' ? 'bn-BD' : 'en-US';
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.onstart = () => {
+    if (!voiceStatus.dataset.key || voiceStatus.dataset.key === 'voiceListening') setVoiceStatus('voiceListening');
+  };
+  rec.onresult = (e) => {
+    recInterim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const text = e.results[i][0].transcript.trim();
+      if (!text) continue;
+      if (e.results[i].isFinal) recFinal += (recFinal ? ' ' : '') + text;
+      else recInterim += (recInterim ? ' ' : '') + text;
+    }
+    recGotText = true;
+    recWrite();
+  };
+  rec.onerror = (e) => {
+    // Silence and aborts are normal — onend below just starts listening
+    // again. Anything else (no internet, mic blocked, language not offered)
+    // means live text won't work; say so once and leave recording alone.
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    recWanted = false;
+    setVoiceStatus('voiceSttFailed');
+  };
+  rec.onend = () => {
+    if (recInterim) { // keep what was heard even if it never got confirmed
+      recFinal += (recFinal ? ' ' : '') + recInterim;
+      recInterim = '';
+      recWrite();
+    }
+    if (recWanted && isRecording) {
+      // Chrome ends a session after a pause or about a minute — carry on.
+      try { launchRecognition(); } catch (err) { recWanted = false; }
+    } else if (!(voiceStatus.dataset.key || '').startsWith('voiceStt')) {
+      setVoiceStatus(recGotText ? 'voiceTextHint' : null);
+    }
+  };
+  rec.start();
+}
+
+function startSpeechToText() {
+  if (!SpeechRec) return;
+  const v = complaintText.value;
+  recStart = v.length;
+  recSegLen = 0;
+  recFinal = '';
+  recInterim = '';
+  recGotText = false;
+  recPrefix = v && !/\s$/.test(v) ? ' ' : '';
+  recWanted = true;
+  setVoiceStatus(null);
+  try { launchRecognition(); } catch (err) { recWanted = false; }
+}
+
+function stopSpeechToText() {
+  recWanted = false;
+  if (recognition) {
+    try { recognition.stop(); } catch (err) { /* already stopped */ }
+  }
+}
+
+// Stops recording (and live text) — used by the Stop button and when the
+// patient leaves the complaint screen mid-recording.
+function stopVoiceIfActive() {
+  if (!isRecording) return;
+  mediaRecorder.stop();
+  isRecording = false;
+  voiceBtn.classList.remove('recording');
+  voiceBtnLabel.textContent = t('voiceRecordLabel');
+  stopSpeechToText();
+}
+
 voiceBtn.addEventListener('click', async () => {
   if (!isRecording) {
     // getUserMedia only exists in a "secure context" — https://, or the
@@ -685,6 +806,7 @@ voiceBtn.addEventListener('click', async () => {
       isRecording = true;
       voiceBtn.classList.add('recording');
       voiceBtnLabel.textContent = t('voiceStopLabel');
+      startSpeechToText();
     } catch (err) {
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         showComplainError(t('errMicDenied'));
@@ -697,10 +819,7 @@ voiceBtn.addEventListener('click', async () => {
       }
     }
   } else {
-    mediaRecorder.stop();
-    isRecording = false;
-    voiceBtn.classList.remove('recording');
-    voiceBtnLabel.textContent = t('voiceRecordLabel');
+    stopVoiceIfActive();
   }
 });
 
@@ -794,6 +913,8 @@ function resetComplainForm() {
   voicePreview.hidden = true;
   voiceClearBtn.hidden = true;
   voicePreview.src = '';
+  recGotText = false;
+  setVoiceStatus(null);
   complainError.hidden = true;
   hideKeyboard();
 }
@@ -922,22 +1043,28 @@ document.getElementById('serial-start-over').addEventListener('click', () => {
 });
 
 // ==========================================================
-// ON-SCREEN KEYBOARD — English (QWERTY, letters + symbols layer) and
-// Bangla (vowels, vowel-signs/kar, consonants, digits — conjuncts are
-// built by tapping the hasant ্ between two consonants, same as any
-// standard Bangla layout). Shown automatically for the complaint text
-// box and the identification value field, since kiosk devices may have
-// no physical keyboard attached.
+// ON-SCREEN KEYBOARD — three input modes:
+//   'en' English (QWERTY, letters + symbols layer)
+//   'ph' Bangla phonetic, Avro-style: tap English letters, get Bangla
+//        (ami -> আমি) with a suggestion bar of Bangla words — see
+//        phonetic.js for the rules and word list
+//   'bn' Bangla letter grid (vowels, vowel-signs/kar, consonants, digits,
+//        plus a "যুক্ত" layer of ready-made conjuncts and a big hasant ্)
+// Shown automatically for the complaint text box and the identification
+// value field, since kiosk devices may have no physical keyboard attached.
 // ==========================================================
 const osk = document.getElementById('osk');
 const oskKeysEl = document.getElementById('osk-keys');
 const oskDoneBtn = document.getElementById('osk-done');
 const oskLangButtons = document.querySelectorAll('.osk-lang-btn');
+const oskSuggestEl = document.getElementById('osk-suggest');
+const oskBufEl = document.getElementById('osk-buf');
+const oskCandsEl = document.getElementById('osk-cands');
 
 let oskTarget = null;
-let oskLang = 'en';
+let oskLang = 'en'; // 'en' | 'ph' | 'bn'
 let oskShift = false;
-let oskLayer = 'letters'; // english only: 'letters' | 'symbols'
+let oskLayer = 'letters'; // 'letters' | 'symbols' (en, ph) | 'more' | 'conj' (bn)
 
 const EN_LETTERS = [
   ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
@@ -962,17 +1089,131 @@ const BN_LETTERS = [
   ['ক', 'খ', 'গ', 'ঘ', 'ঙ', 'চ', 'ছ', 'জ', 'ঝ', 'ঞ', 'ট'],
   ['ঠ', 'ড', 'ঢ', 'ণ', 'ত', 'থ', 'দ', 'ধ', 'ন', 'প', 'ফ'],
   ['ব', 'ভ', 'ম', 'য', 'র', 'ল', 'শ', 'ষ', 'স', 'হ', 'backspace'],
-  ['more', ',', 'space', '।', 'enter']
+  ['more', 'conj', ',', 'space', '।', 'enter']
 ];
 const BN_MORE = [
   ['১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯', '০'],
   ['ড়', 'ঢ়', 'য়', 'ৎ', 'ং', 'ঃ', 'ঁ', 'backspace'],
   ['letters', ',', 'space', '.', 'enter']
 ];
+// Ready-made conjuncts (যুক্তবর্ণ): one tap each instead of consonant +
+// hasant + consonant. The ্র / ্য / র্ keys are the র-ফলা, য-ফলা and রেফ
+// that attach to the consonant typed next to them.
+const BN_CONJ = [
+  ['ক্ষ', 'জ্ঞ', 'ঙ্গ', 'ঙ্ক', 'ন্ত', 'ন্দ', 'ন্ধ'],
+  ['স্ত', 'ক্ত', 'ম্প', 'ম্ব', 'ল্ল', 'ষ্ট', 'ষ্ঠ'],
+  ['ত্ত', 'দ্দ', 'দ্ব', 'ব্দ', 'শ্চ', 'হ্ম', 'ক্র'],
+  ['ত্র', 'প্র', 'গ্র', '্র', '্য', 'র্', 'backspace'],
+  ['letters', ',', 'space', '।', 'enter']
+];
+// Keys whose label gets a dotted circle so a lone sign is readable.
+const BN_SIGN_LABELS = { '্র': '◌্র', '্য': '◌্য', '্': '◌্' };
 
 function oskCurrentRows() {
-  if (oskLang === 'bn') return oskLayer === 'more' ? BN_MORE : BN_LETTERS;
+  if (oskLang === 'bn') {
+    if (oskLayer === 'more') return BN_MORE;
+    if (oskLayer === 'conj') return BN_CONJ;
+    return BN_LETTERS;
+  }
   return oskLayer === 'symbols' ? EN_SYMBOLS : EN_LETTERS;
+}
+
+// ---- Phonetic composition state ----
+// While a word is being typed in 'ph' mode, phBuf holds its English letters
+// ("bhal") and the text box shows the current best Bangla word in place
+// (from phStart, phLen characters long). Space, punctuation, a suggestion
+// tap, or moving the cursor ends the word.
+let phBuf = '';
+let phStart = 0;
+let phLen = 0;
+
+function phReset() {
+  phBuf = '';
+  phLen = 0;
+  phRenderStrip();
+}
+
+function isIdField(el) {
+  // The identification value inputs (OPD ID etc.) keep English digits and
+  // a plain "." — hospital IDs aren't written in Bangla numerals.
+  return !!el && el.classList.contains('text-input');
+}
+
+function phRenderStrip() {
+  oskSuggestEl.hidden = oskLang !== 'ph';
+  if (oskLang !== 'ph') return;
+  oskCandsEl.innerHTML = '';
+  if (!phBuf) {
+    oskBufEl.textContent = t('phHint');
+    oskBufEl.className = 'osk-buf hint';
+    return;
+  }
+  oskBufEl.textContent = phBuf;
+  oskBufEl.className = 'osk-buf';
+  BanglaPhonetic.suggest(phBuf).forEach((word, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'osk-cand' + (i === 0 ? ' first' : '');
+    b.textContent = word;
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+    b.addEventListener('click', () => phPick(word));
+    oskCandsEl.appendChild(b);
+  });
+}
+
+// Writes `text` over the word being composed.
+function phWrite(text) {
+  const el = oskTarget;
+  el.value = el.value.slice(0, phStart) + text + el.value.slice(phStart + phLen);
+  phLen = text.length;
+  const pos = phStart + phLen;
+  el.setSelectionRange(pos, pos);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// A composition only continues if the cursor is still right after the word
+// we wrote (the patient may have tapped somewhere else in the text).
+function phStillValid() {
+  const el = oskTarget;
+  const pos = phStart + phLen;
+  return phBuf && el.selectionStart === pos && el.selectionEnd === pos;
+}
+
+function phType(letter) {
+  const el = oskTarget;
+  if (!phStillValid()) {
+    phBuf = '';
+    phLen = 0;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    if (end > start) { // typing over a selection replaces it
+      el.value = el.value.slice(0, start) + el.value.slice(end);
+      el.setSelectionRange(start, start);
+    }
+    phStart = start;
+  }
+  phBuf += letter;
+  phWrite(BanglaPhonetic.suggest(phBuf)[0]);
+  phRenderStrip();
+}
+
+function phBackspace() {
+  phBuf = phBuf.slice(0, -1);
+  if (!phBuf) {
+    phWrite('');
+    phLen = 0;
+  } else {
+    phWrite(BanglaPhonetic.suggest(phBuf)[0]);
+  }
+  phRenderStrip();
+}
+
+// Tapping a suggestion replaces the word and adds a space after it.
+function phPick(word) {
+  if (!oskTarget) return;
+  if (!phStillValid()) return;
+  phWrite(word + ' ');
+  phReset();
 }
 
 function renderKeyboard() {
@@ -993,7 +1234,19 @@ function renderKeyboard() {
       else if (key === 'shift') { label = '⇧'; extraClass = 'func' + (oskShift ? ' active' : ''); }
       else if (key === 'symbols') { label = '123'; extraClass = 'wide func'; }
       else if (key === 'more') { label = '১২৩'; extraClass = 'wide func'; }
+      else if (key === 'conj') { label = 'যুক্ত'; extraClass = 'wide func'; }
       else if (key === 'letters') { label = oskLang === 'bn' ? 'বাংলা' : 'ABC'; extraClass = 'wide func'; }
+      else if (key === '্') { label = BN_SIGN_LABELS[key]; extraClass = 'hasant'; }
+      else if (BN_SIGN_LABELS[key]) { label = BN_SIGN_LABELS[key]; extraClass = 'conj'; }
+      else if (oskLang === 'bn' && oskLayer === 'conj') { extraClass = 'conj'; }
+      else if (oskLang === 'ph' && /^[a-z]$/.test(key)) {
+        // Phonetic keys show the English letter with the Bangla it makes.
+        const latin = oskShift ? key.toUpperCase() : key;
+        btn.innerHTML = `<span class="k-latin">${latin}</span><span class="k-hint">${BanglaPhonetic.convert(latin)}</span>`;
+        btn.className = 'osk-key has-hint';
+        rowEl.appendChild(btn);
+        return;
+      }
       else if (oskLang === 'en' && oskShift) { label = key.toUpperCase(); }
       btn.textContent = label;
       btn.className = `osk-key ${extraClass}`.trim();
@@ -1001,6 +1254,7 @@ function renderKeyboard() {
     });
     oskKeysEl.appendChild(rowEl);
   });
+  phRenderStrip();
 }
 
 function oskInsert(el, text) {
@@ -1042,20 +1296,24 @@ oskKeysEl.addEventListener('click', (e) => {
     renderKeyboard();
     return;
   }
-  if (key === 'symbols' || key === 'letters' || key === 'more') {
+  if (key === 'symbols' || key === 'letters' || key === 'more' || key === 'conj') {
+    phReset(); // the word being typed is done once the layer changes
     oskLayer = key;
     renderKeyboard();
     return;
   }
   if (key === 'backspace') {
-    oskBackspace(oskTarget);
+    if (oskLang === 'ph' && phStillValid()) phBackspace();
+    else { phReset(); oskBackspace(oskTarget); }
     return;
   }
   if (key === 'space') {
+    phReset(); // the Bangla already shown is the first suggestion — keep it
     oskInsert(oskTarget, ' ');
     return;
   }
   if (key === 'enter') {
+    phReset();
     if (oskTarget.tagName === 'TEXTAREA') {
       oskInsert(oskTarget, '\n');
     } else {
@@ -1064,11 +1322,27 @@ oskKeysEl.addEventListener('click', (e) => {
     return;
   }
 
+  // Phonetic Bangla: letters build up a word (bhal -> ভাল) in place.
+  if (oskLang === 'ph' && /^[a-z]$/.test(key)) {
+    phType(oskShift ? key.toUpperCase() : key);
+    if (oskShift) { oskShift = false; renderKeyboard(); }
+    return;
+  }
+
   let char = key;
-  if (oskLang === 'en' && oskShift) {
+  if (oskLang !== 'bn' && oskShift) {
     char = key.toUpperCase();
     oskShift = false;
     renderKeyboard();
+  }
+  if (oskLang === 'ph') {
+    // Digits and punctuation end the word; in Bangla text, digits become
+    // ০–৯ and "." becomes "।" — except in the ID fields (see isIdField).
+    phReset();
+    if (!isIdField(oskTarget)) {
+      if (/^[0-9]$/.test(char)) char = '০১২৩৪৫৬৭৮৯'[Number(char)];
+      else if (char === '.') char = '।';
+    }
   }
   oskInsert(oskTarget, char);
 });
@@ -1076,6 +1350,7 @@ oskKeysEl.addEventListener('click', (e) => {
 oskLangButtons.forEach((btn) => {
   btn.addEventListener('mousedown', (e) => e.preventDefault());
   btn.addEventListener('click', () => {
+    phReset();
     oskLang = btn.dataset.lang;
     oskLayer = 'letters';
     oskShift = false;
@@ -1094,6 +1369,7 @@ function activeScreenEl() {
 }
 
 function showKeyboard(target) {
+  if (oskTarget !== target) phReset(); // a different field — start fresh
   oskTarget = target;
   osk.hidden = false;
   renderKeyboard();
@@ -1111,6 +1387,7 @@ function showKeyboard(target) {
   }, 220);
 }
 function hideKeyboard() {
+  phReset();
   osk.hidden = true;
   oskTarget = null;
   document.querySelectorAll('.screen.keyboard-open').forEach((el) => el.classList.remove('keyboard-open'));
@@ -1121,9 +1398,13 @@ function hideKeyboard() {
 // someone has the keyboard open and might be mid-word, see the toggle's
 // click handler above).
 function syncOskLangWithUi() {
-  const targetBtn = Array.from(oskLangButtons).find((b) => b.dataset.lang === uiLang);
+  // Bangla UI opens the keyboard in phonetic mode (type "ami" -> আমি); the
+  // letter grid is one tap away on the toolbar.
+  const mode = uiLang === 'bn' ? 'ph' : 'en';
+  const targetBtn = Array.from(oskLangButtons).find((b) => b.dataset.lang === mode);
   if (!targetBtn) return;
-  oskLang = uiLang;
+  phReset();
+  oskLang = mode;
   oskLayer = 'letters';
   oskShift = false;
   oskLangButtons.forEach((b) => b.classList.toggle('active', b === targetBtn));
@@ -1142,6 +1423,7 @@ function refreshDynamicUiText() {
     updateIdValueFieldLabels('id-value-label', idValueInput, complainState.id_type);
   }
   voiceBtnLabel.textContent = isRecording ? t('voiceStopLabel') : t('voiceRecordLabel');
+  if (voiceStatus.dataset.key) voiceStatus.textContent = t(voiceStatus.dataset.key);
   updateComplainProgress();
   if (countersLoaded) renderCounterGrid();
   if (serialServicesLoaded) renderServiceGrid();
